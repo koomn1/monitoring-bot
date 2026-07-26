@@ -1,0 +1,13 @@
+[project]
+name = "quiz-space-devops-bot"
+version = "0.1.0"
+description = "Telegram DevOps Bot for monitoring, managing, and securing the Quiz Space project."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

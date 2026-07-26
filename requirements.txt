@@ -1,0 +1,16 @@
+# Core
+python-telegram-bot==21.4
+httpx==0.27.0
+apscheduler==3.10.4
+aiohttp==3.10.5
+python-dotenv==1.0.1
+
+# Data
+supabase==2.7.4
+psycopg[binary]==3.2.1
+
+# Third-party integrations
+firebase-admin==6.5.0
+
+# Optional: Bot's own error tracking
+sentry-sdk==2.13.0

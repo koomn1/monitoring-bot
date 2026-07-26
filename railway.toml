@@ -1,0 +1,16 @@
+# Railway deployment configuration.
+# Railway auto-detects the Dockerfile at the repo root; this file makes
+# the build/deploy behavior explicit instead of relying on defaults.
+# See: docs/06-deployment.md, deployment/01-deployment-guide.md
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python -m bot.main"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+numReplicas = 1
