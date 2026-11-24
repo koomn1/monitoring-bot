@@ -106,7 +106,7 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
         command_name, _, args_csv = rest.partition("|")
         args = ([a for a in args_csv.split(",") if a] if args_csv else []) + ["confirm"]
     else:
-        logger.warning("Unrecognized callback_data prefix: %s", action)  # noqa: F821
+        logger.warning("Unrecognized callback_data prefix: %s", action)
         return
 
     ctx = CommandContext(
@@ -132,15 +132,14 @@ async def _post_init(application: Application) -> None:
       - Railway (or any host) has an HTTP port to health-check
         (GET /health), which is what most PaaS free/hobby tiers use to
         decide whether the service is alive
-      - GitHub Actions workflows can POST their deploy/backup/rollback
-        callbacks to this same public URL (see .github/workflows/*.yml
-        and BOT_WEBHOOK_URL in docs/04-environment-variables.md)
+      - GitHub Actions and Supabase can POST webhook events to this public URL
+        (see docs/admin-notifications.md for the Supabase setup)
 
     This runs regardless of TELEGRAM_USE_WEBHOOK — Telegram delivery
     mode (polling vs. webhook) is independent of this receiver, which
-    only ever handles GitHub/Sentry callbacks and the health check.
+    handles GitHub/Sentry/Supabase callbacks and the health check.
     """
-    port = int(os.environ.get("PORT", 8081))
+    port = int(os.environ.get("PORT", str(settings.telegram_webhook_port)))
     runner = web.AppRunner(build_app())
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
@@ -181,7 +180,7 @@ def main() -> None:
         # See api/02-webhooks.md for the webhook endpoint contract.
         application.run_webhook(
             listen="0.0.0.0",
-            port=8080,
+            port=settings.telegram_webhook_port,
             webhook_url=settings.telegram_webhook_url,
         )
     else:

@@ -50,6 +50,8 @@ class Settings:
     telegram_bot_token: Optional[str] = field(default_factory=lambda: _get("TELEGRAM_BOT_TOKEN"))
     telegram_webhook_url: Optional[str] = field(default_factory=lambda: _get("TELEGRAM_WEBHOOK_URL"))
     telegram_use_webhook: bool = field(default_factory=lambda: _get_bool("TELEGRAM_USE_WEBHOOK", False))
+    telegram_webhook_port: int = field(default_factory=lambda: int(_get("TELEGRAM_WEBHOOK_PORT", "8080")))
+    telegram_admin_chat_id: Optional[str] = field(default_factory=lambda: _get("TELEGRAM_ADMIN_CHAT_ID"))
     telegram_alert_channel_id: Optional[str] = field(default_factory=lambda: _get("TELEGRAM_ALERT_CHANNEL_ID"))
     telegram_error_channel_id: Optional[str] = field(default_factory=lambda: _get("TELEGRAM_ERROR_CHANNEL_ID"))
 
@@ -62,6 +64,7 @@ class Settings:
     supabase_url: Optional[str] = field(default_factory=lambda: _get("SUPABASE_URL"))
     supabase_anon_key: Optional[str] = field(default_factory=lambda: _get("SUPABASE_ANON_KEY"))
     supabase_service_role_key: Optional[str] = field(default_factory=lambda: _get("SUPABASE_SERVICE_ROLE_KEY"))
+    supabase_webhook_secret: Optional[str] = field(default_factory=lambda: _get("SUPABASE_WEBHOOK_SECRET"))
 
     # --- GitHub -------------------------------------------------------------------
     github_token: Optional[str] = field(default_factory=lambda: _get("GITHUB_TOKEN"))

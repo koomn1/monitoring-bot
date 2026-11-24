@@ -1,29 +1,15 @@
 """
-bot/api/server.py
-
-Lightweight HTTP server (aiohttp) exposing:
-  - POST /webhooks/github  — deployment/backup/rollback/restore callbacks
-                              dispatched from .github/workflows/*.yml
-  - POST /webhooks/sentry  — new-issue alerts from Sentry (optional)
-  - GET  /health           — the Bot's OWN liveness endpoint (not Quiz
-                              Space's — see modules/api monitor for that)
-
-Runs as a small side-process alongside the Telegram polling loop (or,
-in webhook mode, can share the same port as python-telegram-bot's
-webhook server — see docs/06-deployment.md for the two deployment
-shapes). Started explicitly from bot/main.py when
-TELEGRAM_USE_WEBHOOK=true, or can be run standalone via
-`python -m bot.api.server` if inbound webhooks are needed while the
-Bot itself runs in polling mode on a separate process/host.
-
-See: api/02-webhooks.md, api/03-health-endpoint.md, docs/07-security.md §11
+Lightweight HTTP server for inbound GitHub, Sentry, and Supabase webhooks,
+plus the Bot's own liveness endpoint.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
+from typing import Any
 
 from aiohttp import web
 
@@ -31,21 +17,20 @@ from bot.config import settings
 from bot.modules.notifications import service as notifications_service
 
 logger = logging.getLogger("api.server")
-
 routes = web.RouteTableDef()
 
 
+_ALLOWED_SUPABASE_TABLES = {"premium_requests", "profiles", "subscription_plans"}
+_PLAN_FIELDS = ("plan_name", "plan", "subscription_plan", "package_name", "package", "subscription_type")
+_AMOUNT_FIELDS = ("amount", "payment_amount", "payable_amount", "total_amount", "price")
+_PAYMENT_FIELDS = ("payment_method", "method", "payment_type")
+_STATUS_FIELDS = ("status", "approval_status", "request_status", "state")
+_APPROVED_STATUSES = {"approved", "approve", "accepted", "active", "مقبول", "تمت الموافقة", "موافق عليه"}
+_REJECTED_STATUSES = {"rejected", "reject", "declined", "denied", "مرفوض", "تم الرفض"}
+
+
 def _verify_webhook_secret(provided: str | None) -> bool:
-    """
-    Simple shared-secret check: the value in GITHUB_WEBHOOK_SECRET must
-    match the X-Webhook-Secret header sent by .github/workflows/*.yml.
-    This is intentionally a plain shared secret, not a computed HMAC
-    signature — the workflows send the raw value directly (a `curl`
-    step cannot easily compute HMAC-SHA256 without extra tooling), so
-    keeping both sides plain avoids a mismatch between how the sender
-    and receiver format the header. Still constant-time compared to
-    avoid timing attacks. See docs/07-security.md §11.
-    """
+    """Compare shared Supabase/GitHub secrets in constant time."""
     if not settings.github_webhook_secret:
         logger.warning("GITHUB_WEBHOOK_SECRET not configured — rejecting all GitHub webhooks")
         return False
@@ -54,20 +39,32 @@ def _verify_webhook_secret(provided: str | None) -> bool:
     return hmac.compare_digest(provided.encode(), settings.github_webhook_secret.encode())
 
 
+def _verify_supabase_webhook_secret(provided: str | None) -> bool:
+    expected = settings.supabase_webhook_secret
+    if not expected:
+        logger.warning("SUPABASE_WEBHOOK_SECRET not configured — rejecting Supabase webhooks")
+        return False
+    if not provided:
+        return False
+    return hmac.compare_digest(provided.encode(), expected.encode())
+
+
 @routes.post("/webhooks/github")
 async def github_webhook(request: web.Request) -> web.Response:
     raw_body = await request.read()
     provided_secret = request.headers.get("X-Webhook-Secret")
-
     if not _verify_webhook_secret(provided_secret):
         logger.warning("Rejected GitHub webhook: invalid or missing X-Webhook-Secret")
         return web.Response(status=401, text="invalid secret")
 
-    payload = await request.json()
-    event = payload.get("event")
+    try:
+        payload = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return web.Response(status=400, text="invalid JSON")
+    if not isinstance(payload, dict):
+        return web.Response(status=400, text="invalid payload")
 
-    # Acknowledge immediately; notification dispatch is fire-and-forget
-    # so GitHub Actions' `curl` step doesn't wait on Telegram delivery.
+    event = payload.get("event")
     if event == "deployment_success":
         await notifications_service.notify_deployment_success(payload.get("environment", "production"))
     elif event == "deployment_failed":
@@ -93,18 +90,119 @@ async def github_webhook(request: web.Request) -> web.Response:
     return web.Response(status=200, text="ok")
 
 
+def _first_scalar(record: dict[str, Any], field_names: tuple[str, ...]) -> Any:
+    for name in field_names:
+        value = record.get(name)
+        if isinstance(value, (str, int, float)) and not isinstance(value, bool) and str(value).strip():
+            return value
+    return None
+
+
+def _row_id(record: dict[str, Any]) -> Any:
+    return _first_scalar(record, ("id", "user_id", "profile_id", "request_id"))
+
+
+def _is_trial_request(record: dict[str, Any]) -> bool:
+    for key in ("is_trial", "trial", "is_trial_request", "trial_request"):
+        if record.get(key) is True:
+            return True
+    for key in ("request_type", "type", "plan_type", "plan_name", "plan", "package_name", "package"):
+        value = record.get(key)
+        if isinstance(value, str) and any(token in value.casefold() for token in ("trial", "demo", "تجريبي", "تجربة")):
+            return True
+    return False
+
+
+def _status(record: dict[str, Any]) -> str | None:
+    value = _first_scalar(record, _STATUS_FIELDS)
+    if value is not None:
+        return str(value).strip().casefold()
+    if record.get("approved") is True:
+        return "approved"
+    if record.get("approved") is False:
+        return "rejected"
+    return None
+
+
+async def _process_supabase_event(payload: dict[str, Any]) -> None:
+    schema = payload.get("schema", "public")
+    table = payload.get("table")
+    action = payload.get("type")
+    if not isinstance(schema, str) or schema != "public":
+        logger.info("Ignored Supabase webhook for unsupported schema")
+        return
+    if not isinstance(table, str) or table not in _ALLOWED_SUPABASE_TABLES:
+        logger.info("Ignored Supabase webhook for unsupported table")
+        return
+    if not isinstance(action, str):
+        logger.info("Ignored Supabase webhook without a valid event type")
+        return
+    action = action.upper()
+    if action not in {"INSERT", "UPDATE", "DELETE"}:
+        logger.info("Ignored unsupported Supabase event type")
+        return
+
+    record = payload.get("record")
+    old_record = payload.get("old_record")
+    record = record if isinstance(record, dict) else {}
+    old_record = old_record if isinstance(old_record, dict) else {}
+    identifier = _row_id(record) if record else _row_id(old_record)
+
+    if table == "profiles" and action == "INSERT":
+        await notifications_service.notify_new_user(identifier)
+        return
+
+    if table == "subscription_plans":
+        await notifications_service.notify_admin_table_change(table, action, identifier)
+        return
+
+    if table == "premium_requests":
+        if action == "INSERT":
+            if _is_trial_request(record):
+                await notifications_service.notify_trial_activation_request(identifier)
+            else:
+                await notifications_service.notify_activation_request(
+                    identifier,
+                    plan=_first_scalar(record, _PLAN_FIELDS),
+                    amount=_first_scalar(record, _AMOUNT_FIELDS),
+                    payment_method=_first_scalar(record, _PAYMENT_FIELDS),
+                )
+            return
+
+        if action == "UPDATE":
+            old_status = _status(old_record)
+            new_status = _status(record)
+            if new_status in _APPROVED_STATUSES and new_status != old_status:
+                await notifications_service.notify_activation_decision(identifier, approved=True)
+            elif new_status in _REJECTED_STATUSES and new_status != old_status:
+                await notifications_service.notify_activation_decision(identifier, approved=False)
+
+
+@routes.post("/webhooks/supabase")
+async def supabase_webhook(request: web.Request) -> web.Response:
+    if not _verify_supabase_webhook_secret(request.headers.get("X-Webhook-Secret")):
+        logger.warning("Rejected Supabase webhook: invalid or missing X-Webhook-Secret")
+        return web.Response(status=401, text="invalid secret")
+
+    try:
+        raw_body = await request.read()
+        payload = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return web.Response(status=400, text="invalid JSON")
+    if not isinstance(payload, dict):
+        return web.Response(status=400, text="invalid payload")
+
+    try:
+        await _process_supabase_event(payload)
+    except Exception:
+        # Do not log payloads: they may contain personal or payment data.
+        logger.exception("Supabase webhook notification dispatch failed")
+        return web.Response(status=503, text="notification dispatch failed")
+    return web.Response(status=200, text="ok")
+
+
 def _verify_sentry_signature(raw_body: bytes, signature_header: str | None) -> bool:
-    """
-    Sentry's actual webhook signature scheme (distinct from GitHub's):
-    Sentry computes HMAC-SHA256 over the raw request body using the
-    integration's Client Secret, and sends the hex digest in the
-    Sentry-Hook-Signature header — no "sha256=" prefix, unlike GitHub's
-    convention. See: https://docs.sentry.io/product/integrations/integration-platform/webhooks/
-    """
-    if not settings.sentry_webhook_secret:
-        logger.warning("SENTRY_WEBHOOK_SECRET not configured — rejecting all Sentry webhooks")
-        return False
-    if not signature_header:
+    if not settings.sentry_webhook_secret or not signature_header:
         return False
     expected = hmac.new(settings.sentry_webhook_secret.encode(), raw_body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature_header)
@@ -114,16 +212,23 @@ def _verify_sentry_signature(raw_body: bytes, signature_header: str | None) -> b
 async def sentry_webhook(request: web.Request) -> web.Response:
     raw_body = await request.read()
     signature = request.headers.get("Sentry-Hook-Signature")
-
     if not _verify_sentry_signature(raw_body, signature):
         logger.warning("Rejected Sentry webhook: invalid or missing Sentry-Hook-Signature")
         return web.Response(status=401, text="invalid signature")
 
-    payload = await request.json()
-    action = payload.get("action")
+    try:
+        payload = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return web.Response(status=400, text="invalid JSON")
+    if not isinstance(payload, dict):
+        return web.Response(status=400, text="invalid payload")
 
+    action = payload.get("action")
     if action in ("created", "triggered"):
-        issue = payload.get("data", {}).get("issue", payload.get("data", {}).get("event", {}))
+        data = payload.get("data")
+        data = data if isinstance(data, dict) else {}
+        issue = data.get("issue", data.get("event", {}))
+        issue = issue if isinstance(issue, dict) else {}
         title_text = issue.get("title") or issue.get("message") or "New Sentry issue"
         culprit = issue.get("culprit", "")
         await notifications_service.notify_security_alert(
@@ -131,7 +236,6 @@ async def sentry_webhook(request: web.Request) -> web.Response:
         )
     else:
         logger.info("Unrecognized/ignored Sentry webhook action: %s", action)
-
     return web.Response(status=200, text="ok")
 
 
@@ -141,14 +245,14 @@ async def health(request: web.Request) -> web.Response:
 
 
 def build_app() -> web.Application:
-    app = web.Application()
+    app = web.Application(client_max_size=1024 * 1024)
     app.add_routes(routes)
     return app
 
 
 def main() -> None:
     logging.basicConfig(level=settings.log_level)
-    web.run_app(build_app(), host="0.0.0.0", port=8081)
+    web.run_app(build_app(), host="0.0.0.0", port=int(settings.telegram_webhook_port))
 
 
 if __name__ == "__main__":

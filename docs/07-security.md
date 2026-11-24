@@ -67,9 +67,10 @@ Every command execution — successful or not — is recorded in `audit_logs` wi
 
 ## 11. Webhook Signature Verification
 
-Inbound webhooks (GitHub, and any future source) must verify their signature before processing:
+Inbound webhooks (GitHub, Sentry, Supabase, and any future source) must verify their signature or shared secret before processing:
 
 - **GitHub:** HMAC-SHA256 over the raw request body using `GITHUB_WEBHOOK_SECRET`, compared against the `X-Hub-Signature-256` header
+- **Supabase:** constant-time comparison of `X-Webhook-Secret` with `SUPABASE_WEBHOOK_SECRET`; only allow-listed public tables are processed
 - Requests failing signature verification are rejected with `401` and logged as a potential security event, never processed
 
 See [Webhooks](../api/02-webhooks.md) for the endpoint-level contract.

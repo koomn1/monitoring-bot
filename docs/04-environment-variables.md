@@ -46,6 +46,8 @@ None — this is a foundational, dependency-free module.
 | `TELEGRAM_BOT_TOKEN` | **Yes** | — | Bot token from [@BotFather](https://t.me/BotFather). **Secret.** |
 | `TELEGRAM_USE_WEBHOOK` | No | `false` | If `true`, runs in webhook mode instead of long polling |
 | `TELEGRAM_WEBHOOK_URL` | If webhook mode | — | Public HTTPS URL Telegram will POST updates to |
+| `TELEGRAM_WEBHOOK_PORT` | No | `8080` | Port used by Telegram webhook mode; the HTTP receiver uses Railway's `PORT` when present, otherwise this value |
+| `TELEGRAM_ADMIN_CHAT_ID` | No | — | Telegram user/chat ID for admin-only Supabase event notifications |
 | `TELEGRAM_ALERT_CHANNEL_ID` | No | — | Chat/channel ID notifications are sent to; if unset, all Admin+ users are messaged individually |
 | `TELEGRAM_ERROR_CHANNEL_ID` | No | — | Separate channel for Bot-internal error alerts |
 
@@ -64,6 +66,7 @@ None — this is a foundational, dependency-free module.
 | `SUPABASE_URL` | **Yes** | — | Project URL, e.g. `https://xxxx.supabase.co` |
 | `SUPABASE_ANON_KEY` | No | — | Public anon key (not used server-side by the Bot today; reserved) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | — | Service-role key, bypasses RLS. **Secret — highest sensitivity.** |
+| `SUPABASE_WEBHOOK_SECRET` | For Supabase database webhooks | — | Shared secret checked against the `X-Webhook-Secret` request header. **Secret.** |
 
 ### GitHub
 
