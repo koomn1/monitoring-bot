@@ -97,7 +97,9 @@ class Settings:
     umami_website_id: Optional[str] = field(default_factory=lambda: _get("UMAMI_WEBSITE_ID"))
 
     # --- Monitored targets -----------------------------------------------------------
-    website_url: Optional[str] = field(default_factory=lambda: _get("WEBSITE_URL"))
+    website_url: Optional[str] = field(
+        default_factory=lambda: _get("WEBSITE_URL") or "https://quiz-space-app.pages.dev"
+    )
     api_base_url: Optional[str] = field(default_factory=lambda: _get("API_BASE_URL"))
 
     # --- AI Assistant ------------------------------------------------------------------

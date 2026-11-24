@@ -114,8 +114,8 @@ None — this is a foundational, dependency-free module.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `WEBSITE_URL` | For Website Monitor | — | Public URL checked by `website_monitor` |
-| `API_BASE_URL` | For API Monitor | — | Base URL checked by `api_monitor` (expects a `/health` endpoint — see [Health Endpoint](../api/03-health-endpoint.md)) |
+| `WEBSITE_URL` | No | `https://quiz-space-app.pages.dev` | Public URL checked by `website_monitor`; can be overridden for another environment |
+| `API_BASE_URL` | No | — | Optional API base URL checked by `api_monitor` (expects a public `/health` endpoint — see [Health Endpoint](../api/03-health-endpoint.md)); `/status` reports `Not configured` when unset |
 
 ### AI Assistant
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 
+from bot.core.exceptions import ConfigurationError
 from bot.core.router import CommandContext, command, registered_commands
 from bot.utils.formatting import status_line
 from bot.utils.style import title
@@ -74,15 +75,27 @@ async def handle_status(ctx: CommandContext) -> str:
     from bot.modules.storage_monitor import service as storage_monitor
     from bot.modules.website_monitor import service as website_monitor
 
-    website = await website_monitor.check_website()
-    api = await api_monitor.check_api()
+    async def check_optional_monitor(check):
+        try:
+            return await check()
+        except ConfigurationError:
+            return {"status": "not configured"}
+
+    website = await check_optional_monitor(website_monitor.check_website)
+    api = await check_optional_monitor(api_monitor.check_api)
     database = await database_monitor.check_database()
     storage = await storage_monitor.check_storage()
 
     return (
         title("Quiz Space — System Status", "dashboard") + "\n"
-        + status_line("Website", website["status"], f"{website['latency_ms']}ms") + "\n"
-        + status_line("API", api["status"], f"{api['latency_ms']}ms") + "\n"
+        + status_line(
+            "Website", website["status"],
+            f"{website['latency_ms']}ms" if website.get("latency_ms") is not None else "",
+        ) + "\n"
+        + status_line(
+            "API", api["status"],
+            f"{api['latency_ms']}ms" if api.get("latency_ms") is not None else "",
+        ) + "\n"
         + status_line("Database", database["status"]) + "\n"
         + status_line("Storage", storage["status"])
     )
