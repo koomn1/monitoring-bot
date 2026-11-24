@@ -20,7 +20,7 @@ logger = logging.getLogger("api.server")
 routes = web.RouteTableDef()
 
 
-_ALLOWED_SUPABASE_TABLES = {"premium_requests", "profiles", "subscription_plans"}
+_ALLOWED_SUPABASE_TABLES = {"premium_requests", "users", "profiles", "subscription_plans"}
 _PLAN_FIELDS = ("plan_name", "plan", "subscription_plan", "package_name", "package", "subscription_type")
 _AMOUNT_FIELDS = ("amount", "payment_amount", "payable_amount", "total_amount", "price")
 _PAYMENT_FIELDS = ("payment_method", "method", "payment_type")
@@ -99,7 +99,7 @@ def _first_scalar(record: dict[str, Any], field_names: tuple[str, ...]) -> Any:
 
 
 def _row_id(record: dict[str, Any]) -> Any:
-    return _first_scalar(record, ("id", "user_id", "profile_id", "request_id"))
+    return _first_scalar(record, ("uid", "id", "user_id", "profile_id", "request_id"))
 
 
 def _is_trial_request(record: dict[str, Any]) -> bool:
@@ -148,7 +148,7 @@ async def _process_supabase_event(payload: dict[str, Any]) -> None:
     old_record = old_record if isinstance(old_record, dict) else {}
     identifier = _row_id(record) if record else _row_id(old_record)
 
-    if table == "profiles" and action == "INSERT":
+    if table in {"users", "profiles"} and action == "INSERT":
         await notifications_service.notify_new_user(identifier)
         return
 

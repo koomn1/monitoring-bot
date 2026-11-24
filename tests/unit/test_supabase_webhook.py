@@ -25,14 +25,14 @@ async def test_supabase_webhook_rejects_missing_or_invalid_secret(monkeypatch, a
     _patch_supabase_secret(monkeypatch)
     response = await api_client.post(
         "/webhooks/supabase",
-        json={"type": "INSERT", "schema": "public", "table": "profiles", "record": {"id": "123"}},
+        json={"type": "INSERT", "schema": "public", "table": "users", "record": {"uid": "123"}},
     )
     assert response.status == 401
 
     response = await api_client.post(
         "/webhooks/supabase",
         headers={"X-Webhook-Secret": "wrong"},
-        json={"type": "INSERT", "schema": "public", "table": "profiles", "record": {"id": "123"}},
+        json={"type": "INSERT", "schema": "public", "table": "users", "record": {"uid": "123"}},
     )
     assert response.status == 401
 
@@ -76,7 +76,7 @@ async def test_activation_insert_sends_only_allowlisted_fields(monkeypatch, api_
     assert "email" not in captured and "phone" not in captured and "receipt_url" not in captured
 
 
-async def test_trial_profile_and_plan_events(monkeypatch, api_client):
+async def test_trial_user_and_plan_events(monkeypatch, api_client):
     _patch_supabase_secret(monkeypatch)
     events = []
 
@@ -95,7 +95,7 @@ async def test_trial_profile_and_plan_events(monkeypatch, api_client):
 
     for table, action, record, old_record in [
         ("premium_requests", "INSERT", {"id": "trial-123456", "is_trial": True}, None),
-        ("profiles", "INSERT", {"id": "user-123456", "email": "hidden@example.com"}, None),
+        ("users", "INSERT", {"uid": "user-123456", "id": "internal-uuid", "email": "hidden@example.com"}, None),
         ("subscription_plans", "DELETE", {}, {"id": "plan-123456", "name": "Gold"}),
     ]:
         response = await api_client.post(

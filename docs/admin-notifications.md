@@ -28,10 +28,10 @@ In Supabase, open **Database → Webhooks → Create a new webhook**. For each h
 | Table | Events | Telegram notification |
 |---|---|---|
 | `premium_requests` | `INSERT`, `UPDATE` | New paid/standard activation request; trial request; approval or rejection status transition |
-| `profiles` | `INSERT` (optional) | New user |
+| `users` | `INSERT` | New user (this Quiz Space project uses `uid` as the user key) |
 | `subscription_plans` | `INSERT`, `UPDATE`, `DELETE` | Administrative table change |
 
-The handler accepts only these tables in the `public` schema. Other tables/events are ignored. Keep webhook requests within the service's 1 MiB request limit.
+The handler accepts only these tables in the `public` schema. It also accepts `profiles` inserts for legacy deployments, but the current Quiz Space database has a `users` table and no `profiles` table. Other tables/events are ignored. Keep webhook requests within the service's 1 MiB request limit.
 
 ## Fields and privacy
 
@@ -40,11 +40,11 @@ For `premium_requests` inserts, the bot reads only scalar values from these opti
 - Plan/package: `plan_name`, `plan`, `subscription_plan`, `package_name`, `package`, `subscription_type`
 - Amount: `amount`, `payment_amount`, `payable_amount`, `total_amount`, `price`
 - Payment method: `payment_method`, `method`, `payment_type`
-- Request ID: `id`, `user_id`, `profile_id`, or `request_id`
+- Request ID: `id`, `user_id`, `profile_id`, or `request_id`. User-created notifications use `uid` first, matching the current `users` table.
 
 Trial requests are detected from true-valued `is_trial`, `trial`, `is_trial_request`, or `trial_request` fields, or from a `request_type`, `type`, plan, or package value containing “trial”, “demo”, “تجريبي”, or “تجربة”. Approval/rejection notices are sent when one of `status`, `approval_status`, `request_status`, or `state` transitions to an approved/rejected value; a boolean `approved` transition is also supported.
 
-Messages show no more than the first eight characters of an identifier. The bot never copies email addresses, phone numbers, receipt images, or the full webhook record into Telegram. For `profiles`, only a short identifier is sent. For `subscription_plans`, only the table name, event action, and short row identifier are sent. Incoming payloads are not written to logs.
+Messages show no more than the first eight characters of an identifier. The bot never copies email addresses, phone numbers, receipt images, or the full webhook record into Telegram. For `users` (or legacy `profiles`), only a short identifier is sent. For `subscription_plans`, only the table name, event action, and short row identifier are sent. Incoming payloads are not written to logs.
 
 Telegram HTML text is escaped before sending. A missing/incorrect secret receives HTTP `401`; malformed JSON receives `400`. If Telegram notification delivery fails, the endpoint returns `503` so the webhook sender can retry. Unsupported tables or events are acknowledged and ignored.
 
