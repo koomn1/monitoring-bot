@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 from aiohttp import web
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -36,11 +37,33 @@ from bot.modules.telegram_commands import handlers  # noqa: F401
 logger = logging.getLogger("bot.main")
 
 
+class _TelegramTokenRedactionFilter(logging.Filter):
+    _token_pattern = re.compile(r"(?i)(/bot)\d+:[A-Za-z0-9_-]+")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        redacted = self._token_pattern.sub(r"\1[REDACTED]", message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
 def configure_logging() -> None:
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    root_logger = logging.getLogger()
+    if not any(isinstance(item, _TelegramTokenRedactionFilter) for item in root_logger.filters):
+        root_logger.addFilter(_TelegramTokenRedactionFilter())
+    for handler in root_logger.handlers:
+        if not any(isinstance(item, _TelegramTokenRedactionFilter) for item in handler.filters):
+            handler.addFilter(_TelegramTokenRedactionFilter())
+    # httpx includes full request URLs in INFO logs; Telegram API URLs contain
+    # the bot token, so keep transport logs at WARNING or above.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def _to_inline_markup(buttons: Keyboard | None) -> InlineKeyboardMarkup | None:

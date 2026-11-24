@@ -107,11 +107,16 @@ async def handle_dashboard(ctx: CommandContext) -> str:
     from bot.modules.deployment import service as deployment_service
 
     analytics = await analytics_service.get_analytics_summary()
-    deployment = await deployment_service.get_deployment_status()
+    try:
+        deployment = await deployment_service.get_deployment_status()
+        deployment_status = deployment.get("conclusion", deployment.get("status", "unknown"))
+    except ConfigurationError as exc:
+        deployment_status = f"Not configured — {exc}"
+    error_count = analytics.get("error_count")
     return (
         title("Quiz Space — Dashboard", "reports") + "\n"
-        f"Last deployment: {deployment.get('conclusion', deployment.get('status', 'unknown'))}\n"
-        f"Errors (24h): {analytics.get('error_count', 'N/A')}"
+        f"Last deployment: {deployment_status}\n"
+        f"Errors (24h): {error_count if error_count is not None else 'N/A'}"
     )
 
 
