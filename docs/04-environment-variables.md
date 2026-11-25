@@ -97,8 +97,9 @@ None — this is a foundational, dependency-free module.
 |---|---|---|---|
 | `SENTRY_DSN` | No | — | Only needed if the Bot reports its own errors to Sentry |
 | `SENTRY_AUTH_TOKEN` | No | — | API token to read Quiz Space's Sentry issues. **Secret.** |
-| `SENTRY_ORG_SLUG` | No | — | Organization slug |
-| `SENTRY_PROJECT_SLUG` | No | — | Project slug |
+| `SENTRY_ORG_SLUG` | For Sentry issue lookup | — | Organization slug |
+| `SENTRY_PROJECT_SLUG` | For Sentry issue lookup | — | Project slug |
+| `SENTRY_WEBHOOK_SECRET` | For inbound Sentry webhooks | — | Shared secret used to verify Sentry webhook deliveries. **Secret.** |
 
 ### Analytics (optional)
 
