@@ -80,6 +80,11 @@ def register_all_jobs() -> None:
         seconds=settings.health_check_interval_seconds,
         job_id="automation.health_checks",
     )
+    schedule_interval(
+        automation_service.run_operational_alerts,
+        seconds=900,
+        job_id="automation.operational_alerts",
+    )
     schedule_cron(
         automation_service.run_scheduled_backup,
         cron_expression=settings.backup_cron,

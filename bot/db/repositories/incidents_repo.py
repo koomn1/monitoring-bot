@@ -52,3 +52,27 @@ async def get_incident_history(*, days: int = 30) -> list[dict[str, Any]]:
         db().table("incidents").select("*").order("opened_at", desc=True).limit(200).execute()
     )
     return result.data
+
+
+async def get_all_open_incidents() -> list[dict[str, Any]]:
+    result = (
+        db()
+        .table("incidents")
+        .select("*")
+        .is_("resolved_at", "null")
+        .order("opened_at", desc=True)
+        .execute()
+    )
+    return result.data
+
+
+async def get_recent_incidents(*, limit: int = 10) -> list[dict[str, Any]]:
+    result = (
+        db()
+        .table("incidents")
+        .select("*")
+        .order("opened_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data

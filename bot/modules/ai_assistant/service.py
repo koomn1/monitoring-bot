@@ -2,33 +2,62 @@
 bot/modules/ai_assistant/service.py — AI Assistant
 
 Answers free-form operational questions ("why is the API slow today?",
-"summarize this week's incidents") by combining recent monitoring/log
-data with an LLM call. Never given write access to any system — it can
-only read via the other modules' service functions and respond in text.
+"summarize this week's incidents", "how is AI extraction performing?")
+by combining live Quiz Space telemetry, uptime/incidents, logs, and
+security posture with an LLM call. Strictly read-only.
 
 See: modules/18-ai-assistant.md
 """
 
 from __future__ import annotations
 
+import json
+import logging
+from typing import Any
+
+from bot.core.exceptions import ConfigurationError
 from bot.integrations import ai_client
 from bot.modules.logging import service as logging_service
+from bot.modules.platform_insights import service as insights_service
 from bot.modules.security import service as security_service
 
+logger = logging.getLogger("modules.ai_assistant")
+
 _SYSTEM_PROMPT = (
-    "You are the Quiz Space DevOps AI Assistant, operating inside a Telegram "
-    "bot. You help administrators understand the current state of the Quiz "
-    "Space infrastructure. Be concise, use the operational data provided, "
-    "and never invent numbers you were not given. If the data is insufficient, "
-    "say so plainly and suggest which command would provide it."
+    "You are the Quiz Space DevOps & Platform Operations AI Assistant inside "
+    "Telegram. You help administrators understand the live health, usage, AI "
+    "pipeline performance, pending payments, and incidents of Quiz Space. "
+    "Reply in the same language as the administrator's question (Arabic or English). "
+    "Be concise, cite concrete metrics from the telemetry provided, and never "
+    "invent numbers. If a data source is missing or not configured, say so plainly."
 )
 
 
-async def answer_question(question: str) -> str:
-    recent_logs = await logging_service.get_recent_command_logs(limit=10)
-    security = await security_service.get_security_overview()
+async def _safe(coro: Any, default: Any) -> Any:
+    try:
+        return await coro
+    except ConfigurationError as exc:
+        return {"not_configured": str(exc)}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AI assistant context degraded: %s", exc)
+        return default
 
-    context = f"Recent command logs: {recent_logs}\nSecurity overview: {security}\n"
-    prompt = f"{context}\nAdministrator question: {question}"
+
+async def answer_question(question: str) -> str:
+    pulse = await _safe(insights_service.get_live_pulse(hours=24), {})
+    uptime = await _safe(insights_service.get_uptime_and_incidents(hours=24), {})
+    recent_logs = await _safe(logging_service.get_recent_command_logs(limit=10), [])
+    security = await _safe(security_service.get_security_overview(), {})
+
+    context_payload = {
+        "live_pulse_24h": pulse,
+        "uptime_and_incidents_24h": uptime,
+        "recent_bot_commands": recent_logs,
+        "security_overview": security,
+    }
+    prompt = (
+        f"Operational Telemetry JSON:\n{json.dumps(context_payload, default=str, ensure_ascii=False)}\n\n"
+        f"Administrator question: {question}"
+    )
 
     return await ai_client.complete(_SYSTEM_PROMPT, prompt)

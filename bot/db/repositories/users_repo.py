@@ -88,3 +88,25 @@ async def get_recent_signups(limit: int = 10) -> list[dict[str, Any]]:
         db().table("users").select("*").order("created_at", desc=True).limit(limit).execute()
     )
     return result.data
+
+
+async def get_signups_count_since(since_iso: str) -> int:
+    result = db().table("users").select("uid", count="exact").gte("created_at", since_iso).limit(1).execute()
+    return result.count or 0
+
+
+async def get_suspended_user_count() -> int:
+    result = db().table("users").select("uid", count="exact").eq("is_suspended", True).limit(1).execute()
+    return result.count or 0
+
+
+async def get_lifetime_or_founder_count() -> int:
+    result = (
+        db()
+        .table("users")
+        .select("uid", count="exact")
+        .or_("is_lifetime.eq.true,is_founder.eq.true")
+        .limit(1)
+        .execute()
+    )
+    return result.count or 0

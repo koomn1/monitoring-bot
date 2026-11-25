@@ -9,7 +9,7 @@ See: modules/15-logging-module.md, database/02-tables.md
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from bot.db.client import db
@@ -65,17 +65,99 @@ async def get_recent_logs(*, limit: int = 50, command: Optional[str] = None) -> 
     return result.data
 
 
+async def get_recent_failed_commands(*, limit: int = 10) -> list[dict[str, Any]]:
+    result = (
+        db()
+        .table("audit_logs")
+        .select("*")
+        .not_.is_("error", "null")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+async def get_recent_failed_checks(*, hours: int = 24, limit: int = 10) -> list[dict[str, Any]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    result = (
+        db()
+        .table("monitoring_logs")
+        .select("*")
+        .eq("status", "down")
+        .gte("checked_at", cutoff)
+        .order("checked_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
 async def get_monitoring_history(service: str, *, hours: int = 24) -> list[dict[str, Any]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     result = (
         db()
         .table("monitoring_logs")
         .select("*")
         .eq("service", service)
+        .gte("checked_at", cutoff)
         .order("checked_at", desc=True)
         .limit(500)
         .execute()
     )
     return result.data
+
+
+async def get_service_stats(*, hours: int = 24) -> dict[str, dict[str, Any]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    result = (
+        db()
+        .table("monitoring_logs")
+        .select("service,status,latency_ms,checked_at")
+        .gte("checked_at", cutoff)
+        .order("checked_at", desc=True)
+        .limit(2000)
+        .execute()
+    )
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in result.data or []:
+        svc = str(row.get("service") or "unknown")
+        entry = grouped.setdefault(
+            svc,
+            {
+                "checks": 0,
+                "up_count": 0,
+                "down_count": 0,
+                "latest_status": row.get("status", "unknown"),
+                "latest_checked_at": row.get("checked_at"),
+                "_latencies": [],
+            },
+        )
+        entry["checks"] += 1
+        if row.get("status") == "up":
+            entry["up_count"] += 1
+        elif row.get("status") == "down":
+            entry["down_count"] += 1
+        lat = row.get("latency_ms")
+        if isinstance(lat, (int, float)) and lat >= 0:
+            entry["_latencies"].append(int(lat))
+
+    for entry in grouped.values():
+        lats = entry.pop("_latencies")
+        checks = entry["checks"]
+        entry["uptime_pct"] = round((entry["up_count"] / checks) * 100.0, 2) if checks else None
+        entry["avg_latency_ms"] = round(sum(lats) / len(lats)) if lats else None
+    return grouped
+
+
+async def get_uptime_percentage(service: str, *, days: int = 7) -> float | None:
+    try:
+        res = db().rpc("get_uptime_percentage", {"p_service": service, "p_days": days}).execute()
+        if res.data is not None:
+            return float(res.data)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 
 async def cleanup_old_logs(retention_days: int = 90) -> None:

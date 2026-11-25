@@ -149,6 +149,22 @@ async def notify_admin_table_change(table: str, action: str, row_id: Any) -> Non
     )
 
 
+async def notify_latency_warning(service: str, latency_ms: int, threshold_ms: int) -> None:
+    await _broadcast(
+        f"🟡 <b>High Latency Warning</b>\n"
+        f"Service: {_escape(service)}\n"
+        f"Latency: {format_duration_ms(latency_ms)} (threshold: {format_duration_ms(threshold_ms)})"
+    )
+
+
+async def notify_operational_alert(title_text: str, details: str) -> None:
+    await _broadcast(f"⚠️ <b>{_escape(title_text)}</b>\n{_escape(details, max_length=400)}")
+
+
+async def notify_scheduled_report(content: str) -> None:
+    await _broadcast_admin(content)
+
+
 async def notify_new_premium_user(identifier: str) -> None:
     await _broadcast(f"⭐ <b>New Premium User</b>\n{_short_id(identifier)}")
 

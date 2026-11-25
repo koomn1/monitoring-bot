@@ -20,7 +20,7 @@ import os
 import re
 
 from aiohttp import web
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from bot.api.server import build_app
@@ -28,7 +28,7 @@ from bot.config import settings
 from bot.core import scheduler
 from bot.core.middleware import with_audit_log
 from bot.core.router import CommandContext, dispatch
-from bot.utils.keyboards import Keyboard
+from bot.utils.keyboards import Keyboard, resolve_confirmation_token
 
 # Populates the command registry — must be imported before the bot starts
 # receiving updates. See bot/modules/telegram_commands/handlers.py.
@@ -80,6 +80,30 @@ def _to_inline_markup(buttons: Keyboard | None) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(rows)
 
 
+def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for line in text.splitlines(keepends=True):
+        if len(line) > limit:
+            if current:
+                chunks.append("".join(current))
+                current, current_len = [], 0
+            for start in range(0, len(line), limit):
+                chunks.append(line[start : start + limit])
+            continue
+        if current_len + len(line) > limit and current:
+            chunks.append("".join(current))
+            current, current_len = [], 0
+        current.append(line)
+        current_len += len(line)
+    if current:
+        chunks.append("".join(current))
+    return chunks
+
+
 async def _telegram_command_entrypoint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user is None or update.effective_chat is None or update.message is None:
         return
@@ -98,17 +122,20 @@ async def _telegram_command_entrypoint(update: Update, context: ContextTypes.DEF
     )
 
     reply_text, buttons = await with_audit_log(ctx, dispatch)
-    await update.message.reply_text(
-        reply_text, parse_mode="HTML", reply_markup=_to_inline_markup(buttons)
-    )
+    chunks = _split_telegram_text(reply_text)
+    markup = _to_inline_markup(buttons)
+    for idx, chunk in enumerate(chunks):
+        is_last = idx == len(chunks) - 1
+        await update.message.reply_text(
+            chunk, parse_mode="HTML", reply_markup=markup if is_last else None
+        )
 
 
 async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles every inline-button tap: menu shortcuts ("cmd|status"),
-    confirmations ("confirm|deploy|production"), and cancellations
-    ("cancel|deploy"). See bot/utils/keyboards.py for the callback_data
-    format.
+    confirmations ("confirm|deploy|production" or "confirm_tok|<token>"),
+    and cancellations ("cancel|deploy").
     """
     query = update.callback_query
     if query is None or query.data is None or query.from_user is None or query.message is None:
@@ -128,6 +155,13 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     elif action == "confirm":
         command_name, _, args_csv = rest.partition("|")
         args = ([a for a in args_csv.split(",") if a] if args_csv else []) + ["confirm"]
+    elif action == "confirm_tok":
+        resolved = resolve_confirmation_token(rest)
+        if resolved is None:
+            await query.edit_message_text("⚠️ Confirmation expired — please re-run the command.")
+            return
+        command_name, stored_args = resolved
+        args = list(stored_args) + ["confirm"]
     else:
         logger.warning("Unrecognized callback_data prefix: %s", action)
         return
@@ -142,9 +176,16 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     )
 
     reply_text, buttons = await with_audit_log(ctx, dispatch)
+    chunks = _split_telegram_text(reply_text)
+    markup = _to_inline_markup(buttons)
     await query.edit_message_text(
-        reply_text, parse_mode="HTML", reply_markup=_to_inline_markup(buttons)
+        chunks[0], parse_mode="HTML", reply_markup=markup if len(chunks) == 1 else None
     )
+    for idx, extra_chunk in enumerate(chunks[1:], start=1):
+        is_last = idx == len(chunks) - 1
+        await query.message.reply_text(
+            extra_chunk, parse_mode="HTML", reply_markup=markup if is_last else None
+        )
 
 
 async def _post_init(application: Application) -> None:
@@ -168,6 +209,31 @@ async def _post_init(application: Application) -> None:
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logger.info("Webhook/health receiver listening on port %s", port)
+
+    menu_commands = [
+        BotCommand("start", "Open main operations menu"),
+        BotCommand("status", "Service health, realtime & incidents"),
+        BotCommand("dashboard", "Full executive platform snapshot"),
+        BotCommand("pulse", "Live users, quizzes & activity"),
+        BotCommand("errors", "Full diagnostics across Sentry, AI & jobs"),
+        BotCommand("ai", "AI pipeline & extraction queue"),
+        BotCommand("payments", "Review pending subscriptions"),
+        BotCommand("orders", "Review reward store orders"),
+        BotCommand("points", "Points leaderboard & user balances"),
+        BotCommand("users", "User stats & newest signups"),
+        BotCommand("user", "Full user profile, plan & points"),
+        BotCommand("membership", "Edit user subscription (Owner)"),
+        BotCommand("grantpoints", "Add/deduct user points (Owner)"),
+        BotCommand("incidents", "Open/resolved incidents & uptime"),
+        BotCommand("analytics", "Platform analytics & Web Vitals"),
+        BotCommand("reports", "Daily/weekly/monthly/performance reports"),
+        BotCommand("ask", "Ask AI assistant about live metrics"),
+        BotCommand("help", "All commands & usage"),
+    ]
+    try:
+        await application.bot.set_my_commands(menu_commands)
+    except Exception:  # noqa: BLE001
+        logger.warning("Could not sync Telegram command menu")
 
 
 def build_application() -> Application:

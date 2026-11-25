@@ -2,34 +2,54 @@
 bot/utils/keyboards.py
 
 Generates Telegram inline keyboards as plain, Telegram-library-agnostic
-data: list[list[{"text": str, "callback_data": str}]]. This matches
-CommandContext's design goal (bot/core/router.py) — nothing in
-bot/core or bot/modules imports the `telegram` package directly.
-bot/main.py is the only place that converts this shape into
-python-telegram-bot's InlineKeyboardMarkup.
+data: list[list[{"text": str, "callback_data": str}]].
 
-Callback data format (kept short — Telegram caps callback_data at 64
-bytes):
-  "cmd|<command>"                — re-run a read-only command (e.g. refresh)
-  "confirm|<command>|<a,b,c>"    — confirm a pending destructive action,
-                                    extra_args joined by comma
-  "cancel|<command>"             — cancel a pending destructive action
-
-See: modules/17-telegram-commands.md, docs/07-security.md §8
+Callback data format (kept within Telegram's 64-byte cap):
+  "cmd|<command>"                — re-run a read-only command
+  "confirm|<command>|<a,b,c>"    — confirm pending action (when <= 64 bytes)
+  "confirm_tok|<token>"          — confirm pending action with longer args
+  "cancel|<command>"             — cancel a pending action
 """
 
 from __future__ import annotations
 
+import secrets
+from collections import OrderedDict
+
 Button = dict[str, str]
 Keyboard = list[list[Button]]
 
+_MAX_CALLBACK_BYTES = 64
+_MAX_PENDING_TOKENS = 200
+_PENDING_CONFIRMATIONS: OrderedDict[str, tuple[str, list[str]]] = OrderedDict()
+
+
+def resolve_confirmation_token(token: str) -> tuple[str, list[str]] | None:
+    """Pops and returns (command, extra_args) for a short confirmation token."""
+    return _PENDING_CONFIRMATIONS.pop(token, None)
+
 
 def confirmation_buttons(command: str, extra_args: list[str] | None = None) -> Keyboard:
-    args_csv = ",".join(extra_args or [])
+    args = list(extra_args or [])
+    args_csv = ",".join(args)
+    direct_data = f"confirm|{command}|{args_csv}"
+    if len(direct_data.encode("utf-8")) <= _MAX_CALLBACK_BYTES:
+        confirm_cb = direct_data
+    else:
+        token = secrets.token_hex(6)
+        _PENDING_CONFIRMATIONS[token] = (command, args)
+        while len(_PENDING_CONFIRMATIONS) > _MAX_PENDING_TOKENS:
+            _PENDING_CONFIRMATIONS.popitem(last=False)
+        confirm_cb = f"confirm_tok|{token}"
+
+    cancel_cb = f"cancel|{command}"
+    if len(cancel_cb.encode("utf-8")) > _MAX_CALLBACK_BYTES:
+        cancel_cb = "cancel|action"
+
     return [
         [
-            {"text": "✅ Confirm", "callback_data": f"confirm|{command}|{args_csv}"},
-            {"text": "❌ Cancel", "callback_data": f"cancel|{command}"},
+            {"text": "✅ Confirm", "callback_data": confirm_cb},
+            {"text": "❌ Cancel", "callback_data": cancel_cb},
         ]
     ]
 
@@ -41,12 +61,28 @@ def main_menu_buttons() -> Keyboard:
             {"text": "📊 Dashboard", "callback_data": "cmd|dashboard"},
         ],
         [
-            {"text": "🖥️ System", "callback_data": "cmd|system"},
-            {"text": "🛡️ Security", "callback_data": "cmd|security"},
+            {"text": "⚡ Pulse", "callback_data": "cmd|pulse"},
+            {"text": "🐛 Errors", "callback_data": "cmd|errors"},
+        ],
+        [
+            {"text": "🤖 AI Health", "callback_data": "cmd|ai"},
+            {"text": "🚨 Incidents", "callback_data": "cmd|incidents"},
+        ],
+        [
+            {"text": "💳 Payments", "callback_data": "cmd|payments"},
+            {"text": "🎁 Store Orders", "callback_data": "cmd|orders"},
+        ],
+        [
+            {"text": "👥 Users", "callback_data": "cmd|users"},
+            {"text": "🏆 Points", "callback_data": "cmd|points"},
         ],
         [
             {"text": "📈 Analytics", "callback_data": "cmd|analytics"},
-            {"text": "📜 Logs", "callback_data": "cmd|logs"},
+            {"text": "📋 Reports", "callback_data": "cmd|reports"},
+        ],
+        [
+            {"text": "🗄️ Database", "callback_data": "cmd|database"},
+            {"text": "🛡️ Security", "callback_data": "cmd|security"},
         ],
     ]
 
@@ -55,19 +91,29 @@ def refresh_button(command: str) -> Keyboard:
     return [[{"text": "🔄 Refresh", "callback_data": f"cmd|{command}"}]]
 
 
-# Commands that get an automatic "🔄 Refresh" button on their reply.
-_REFRESHABLE = {"status", "dashboard", "system", "security", "analytics"}
-# Commands that get the main menu attached on their reply.
+_REFRESHABLE = {
+    "status",
+    "dashboard",
+    "pulse",
+    "ai",
+    "payments",
+    "orders",
+    "points",
+    "incidents",
+    "users",
+    "database",
+    "storage",
+    "system",
+    "security",
+    "analytics",
+    "reports",
+    "errors",
+    "logs",
+}
 _MENU_COMMANDS = {"start", "help"}
 
 
 def buttons_for(command: str, args: list[str]) -> Keyboard | None:
-    """
-    Called automatically by bot/core/router.py after a successful reply
-    to attach the right keyboard for that command — individual command
-    handlers in bot/modules/telegram_commands/handlers.py do not need
-    to build keyboards themselves for these standard cases.
-    """
     if command in _MENU_COMMANDS:
         return main_menu_buttons()
     if command in _REFRESHABLE:
