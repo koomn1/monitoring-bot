@@ -149,6 +149,7 @@ _HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
             ("backup", "إنشاء أو عرض النسخ الاحتياطية"),
             ("restore", "استعادة نسخة احتياطية (المالك)"),
             ("settings", "عرض/تعديل إعدادات البوت (المالك)"),
+            ("envcheck", "فحص المفاتيح السرية والتكاملات (المالك)"),
             ("setrole", "منح صلاحية ADMIN أو VIEWER لمستخدم تليجرام (المالك)"),
         ],
     ),
@@ -1890,3 +1891,52 @@ async def handle_deletequiz(ctx: CommandContext) -> str:
         f"• المعرّف: <code>{_esc(result['id'])}</code>\n"
         f"• العنوان: {_esc(result.get('title'))}"
     )
+
+
+@command("envcheck")
+async def handle_envcheck(ctx: CommandContext) -> str:
+    from bot.config import settings
+
+    checks = [
+        ("TELEGRAM_BOT_TOKEN", bool(settings.telegram_bot_token), "إلزامي"),
+        ("SUPABASE_URL", bool(settings.supabase_url), "إلزامي"),
+        ("SUPABASE_SERVICE_ROLE_KEY", bool(settings.supabase_service_role_key), "إلزامي"),
+        ("OWNER_USER_IDS", bool(settings.owner_user_ids), "إلزامي"),
+        ("SUPABASE_WEBHOOK_SECRET", bool(settings.supabase_webhook_secret), "إشعارات الدفع"),
+        ("TELEGRAM_ADMIN_CHAT_ID", bool(settings.telegram_admin_chat_id), "قناة الإدارة"),
+        ("TELEGRAM_ALERT_CHANNEL_ID", bool(settings.telegram_alert_channel_id), "قناة التنبيهات"),
+        ("AI_API_KEY", bool(settings.ai_api_key), f"الذكاء ({settings.ai_provider})"),
+        ("GITHUB_TOKEN", bool(settings.github_token), "النشر والنسخ"),
+        ("GITHUB_REPO", bool(settings.github_repo), "النشر والنسخ"),
+        ("GITHUB_WEBHOOK_SECRET", bool(settings.github_webhook_secret), "Webhook النشر"),
+        ("CLOUDFLARE_API_TOKEN", bool(settings.cloudflare_api_token), "Cloudflare"),
+        ("CLOUDFLARE_ACCOUNT_ID", bool(settings.cloudflare_account_id), "Cloudflare"),
+        ("SENTRY_AUTH_TOKEN", bool(settings.sentry_auth_token), "أخطاء Sentry"),
+        ("SENTRY_WEBHOOK_SECRET", bool(settings.sentry_webhook_secret), "Webhook Sentry"),
+        ("API_BASE_URL", bool(settings.api_base_url), "فحص الـ API"),
+        ("UMAMI_API_KEY", bool(settings.umami_api_key), "إحصائيات Umami"),
+        ("FIREBASE_PROJECT_ID", bool(settings.firebase_project_id), "Firebase"),
+    ]
+
+    rows = [
+        {
+            "المفتاح": name,
+            "الحالة": "✅ مضبوط" if is_set else "❌ ناقص",
+            "الوظيفة": purpose,
+        }
+        for name, is_set, purpose in checks
+    ]
+    configured_count = sum(1 for _, ok, _ in checks if ok)
+    missing_required = [name for name, ok, purpose in checks if not ok and purpose == "إلزامي"]
+
+    lines = [
+        "🔑 <b>فحص المفاتيح السرية وإعدادات البيئة</b>",
+        f"• الجاهزية: <b>{configured_count}/{len(checks)}</b> مضبوط (بدون عرض أي قيم سرية)",
+        "",
+        format_table(rows, ["المفتاح", "الحالة", "الوظيفة"], max_col_width=25),
+    ]
+    if missing_required:
+        lines.append(f"⚠️ <b>مفاتيح إلزامية ناقصة:</b> {', '.join(missing_required)}")
+    else:
+        lines.append("✅ جميع المفاتيح الإلزامية مضبوطة.")
+    return "\n".join(lines)

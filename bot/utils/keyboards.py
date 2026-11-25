@@ -125,6 +125,9 @@ def main_menu_buttons() -> Keyboard:
             {"text": "🎟️ الكوبونات", "callback_data": "cmd|coupon"},
             {"text": "⚙️ المنصة", "callback_data": "cmd|platform"},
         ],
+        [
+            {"text": "🔑 فحص المفاتيح", "callback_data": "cmd|envcheck"},
+        ],
     ]
 
 
@@ -166,6 +169,7 @@ _REFRESHABLE = {
     "trial",
     "plans",
     "quizzes",
+    "envcheck",
 }
 _MENU_COMMANDS = {"start", "help"}
 

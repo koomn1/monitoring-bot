@@ -253,6 +253,7 @@ async def _post_init(application: Application) -> None:
         BotCommand("analytics", "التحليلات ومؤشرات الأداء"),
         BotCommand("reports", "التقارير اليومية والأسبوعية والشهرية"),
         BotCommand("ask", "اسأل المساعد الذكي عن حالة المنصة"),
+        BotCommand("envcheck", "فحص المفاتيح السرية والإعدادات (المالك)"),
         BotCommand("help", "عرض جميع الأوامر وطريقة الاستخدام"),
     ]
     try:

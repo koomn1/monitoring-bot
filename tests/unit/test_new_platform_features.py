@@ -557,3 +557,27 @@ async def test_cmd_users_renders_table_with_points_and_status():
     assert "أحمد" in out
     assert "موقوف" in out
     assert "450" in out
+
+
+@pytest.mark.asyncio
+async def test_cmd_envcheck_reports_set_and_missing_without_leaking_values(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "super-secret-token-value")
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "super-secret-service-key")
+    monkeypatch.setenv("OWNER_USER_IDS", "111")
+    monkeypatch.delenv("SENTRY_AUTH_TOKEN", raising=False)
+
+    import importlib
+    import bot.config as cfg_mod
+    importlib.reload(cfg_mod)
+
+    from bot.core import permissions
+    assert permissions.COMMAND_MIN_ROLE["envcheck"] == permissions.Role.OWNER
+
+    from bot.modules.telegram_commands.handlers import handle_envcheck
+    out = await handle_envcheck(_ctx("envcheck"))
+    assert "TELEGRAM_BOT_TOKEN" in out
+    assert "✅ مضبوط" in out
+    assert "❌ ناقص" in out
+    assert "super-secret-token-value" not in out
+    assert "super-secret-service-key" not in out

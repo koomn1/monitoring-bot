@@ -97,6 +97,7 @@ COMMAND_MIN_ROLE: dict[str, Role] = {
     "analytics": Role.VIEWER,
     "reports": Role.VIEWER,
     "settings": Role.OWNER,
+    "envcheck": Role.OWNER,
     "system": Role.ADMIN,
     "setrole": Role.OWNER,
 }
