@@ -69,14 +69,130 @@ async def handle_start(ctx: CommandContext) -> str:
 
     await auth_service.authenticate(ctx.user_id, username=None)
     return (
-        f"{title('لوحة إدارة ومراقبة Quiz Space', 'wave')}\n\n"
-        "مراقبة حية، إدارة المستخدمين والعضويات، مراجعة المدفوعات والنقاط، "
-        "تعديل الباقات والكوبونات، وتشخيص أخطاء الذكاء الاصطناعي بالكامل.\n\n"
-        "استخدم الأزرار بالأسفل أو أرسل /help لعرض جميع الأوامر."
+        f"{title('Quiz Space — مركز التحكم', 'dashboard')}\n\n"
+        "لوحة تشغيل آمنة لإدارة المنصة ومراقبتها.\n"
+        "اختر القسم المطلوب من القائمة؛ الإجراءات الحساسة تطلب تأكيداً قبل التنفيذ."
     )
 
 
+def _section_buttons(rows: list[list[tuple[str, str, list[str] | None]]]) -> None:
+    """Attach a compact section menu without embedding business logic in buttons."""
+    set_reply_buttons(
+        [[cmd_button(label, command, args) for label, command, args in row] for row in rows]
+    )
+
+
+@command("monitor")
+async def handle_monitor(ctx: CommandContext) -> str:
+    _section_buttons([
+        [("📊 لوحة التحكم", "dashboard", None), ("🟢 حالة الخدمات", "status", None)],
+        [("⚡ النبض الحي", "pulse", None), ("🚨 الحوادث", "incidents", None)],
+    ])
+    return "📊 <b>النظرة العامة</b>\n\nملخص التشغيل، صحة الخدمات، النشاط الحي والحوادث المفتوحة."
+
+
+@command("people")
+async def handle_people(ctx: CommandContext) -> str:
+    from bot.core.permissions import Role, get_role
+
+    rows = [
+        [("👥 المستخدمون", "users", None), ("🔎 ملف مستخدم", "user", None)],
+        [("🏆 النقاط وXP", "points", None), ("🎁 طلبات المتجر", "orders", None)],
+    ]
+    if await get_role(ctx.user_id) >= Role.OWNER:
+        rows.append([("✏️ تعديل النقاط", "grantpoints", None), ("🛡️ تعديل مستخدم", "edituser", None)])
+    _section_buttons(rows)
+    return "👥 <b>المستخدمون والنقاط</b>\n\nإدارة الحسابات، العضويات، النقاط وسجل المكافآت."
+
+
+@command("commerce")
+async def handle_commerce(ctx: CommandContext) -> str:
+    _section_buttons([
+        [("💳 طلبات الدفع", "payments", None), ("💎 الباقات", "plans", None)],
+        [("🎟️ الكوبونات", "coupon", None), ("🎁 التجارب المجانية", "trial", None)],
+    ])
+    return "💳 <b>العضويات والمدفوعات</b>\n\nراجع الطلبات والباقات والكوبونات والتجارب من مكان واحد."
+
+
+@command("content")
+async def handle_content(ctx: CommandContext) -> str:
+    _section_buttons([
+        [("📝 الاختبارات", "quizzes", None), ("📈 مؤشرات الأداء", "vitals", None)],
+        [("🤖 صحة الذكاء", "ai", None), ("📋 التقارير", "reports", None)],
+    ])
+    return "📝 <b>المحتوى والاختبارات</b>\n\nتابع الاختبارات ومهام الذكاء الاصطناعي ومؤشرات الأداء."
+
+
+@command("platform_admin")
+async def handle_platform_admin(ctx: CommandContext) -> str:
+    _section_buttons([
+        [("⚙️ إعدادات المنصة", "platform", None), ("🧩 إعدادات التشغيل", "settings", None)],
+        [("📣 الإشعارات", "notify", None), ("📊 التحليلات", "analytics", None)],
+    ])
+    return "⚙️ <b>إعدادات Quiz Space</b>\n\nتحكم في الصيانة والتسجيل والإعدادات التشغيلية والإشعارات."
+
+
+@command("operations")
+async def handle_operations(ctx: CommandContext) -> str:
+    _section_buttons([
+        [("🚀 النشر", "deploy", None), ("🔨 البناء", "build", None)],
+        [("💾 النسخ الاحتياطي", "backup", None), ("🗄️ قاعدة البيانات", "database", None)],
+        [("📦 التخزين", "storage", None), ("↩️ التراجع", "rollback", None)],
+    ])
+    return "🚀 <b>النشر والنسخ الاحتياطي</b>\n\nشغّل العمليات التشغيلية مع إبقاء التغييرات الحساسة خلف تأكيد."
+
+
+@command("security_center")
+async def handle_security_center(ctx: CommandContext) -> str:
+    from bot.core.permissions import Role, get_role
+
+    rows = [
+        [("🛡️ وضع الأمان", "security", None), ("📜 السجلات", "logs", None)],
+        [("🐛 الأخطاء", "errors", None), ("🧪 فحص البيئة", "envcheck", None)],
+    ]
+    if await get_role(ctx.user_id) >= Role.OWNER:
+        rows.append([("🔐 إدارة الأسرار", "secrets", None), ("👤 صلاحيات البوت", "setrole", None)])
+    _section_buttons(rows)
+    return "🛡️ <b>الأمان والسجلات</b>\n\nراقب السجلات والتكاملات والصلاحيات دون عرض أي قيمة سرية."
+
+
+@command("secrets")
+async def handle_secrets(ctx: CommandContext) -> str:
+    """Show secret inventory only; secret values must never enter Telegram."""
+    from bot.config import settings
+
+    readiness = _integration_readiness(settings)
+    ready = sum(1 for _, is_ready, _ in readiness if is_ready)
+    lines = [
+        "🔐 <b>إدارة الأسرار</b>",
+        f"جاهزية التكاملات: <b>{ready}/{len(readiness)}</b>",
+        "",
+        "هذه الشاشة تعرض الحالة وأسماء المتغيرات الناقصة فقط. لا يتم عرض أو حفظ أي قيمة سرية داخل Telegram.",
+        "إضافة أو تدوير السر تتم من Secret Manager أو متغيرات بيئة النشر، ثم استخدم زر الفحص للتأكد.",
+        "",
+        "<b>الحالة</b>",
+    ]
+    for name, is_ready, missing in readiness:
+        state = "✅ جاهز" if is_ready else ("⚠️ ناقص: " + ", ".join(missing))
+        lines.append(f"• {_esc(name)}: {state}")
+    _section_buttons([[("🧪 فحص البيئة", "envcheck", None), ("🏠 الرئيسية", "start", None)]])
+    return "\n".join(lines)
+
+
 _HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
+    (
+        "لوحة التحكم الجديدة",
+        [
+            ("monitor", "النظرة العامة وحالة الخدمات والحوادث"),
+            ("people", "المستخدمون والنقاط وXP"),
+            ("commerce", "العضويات والمدفوعات والكوبونات"),
+            ("content", "الاختبارات والذكاء الاصطناعي والتقارير"),
+            ("platform_admin", "إعدادات Quiz Space والإشعارات"),
+            ("operations", "النشر والبناء والنسخ الاحتياطي"),
+            ("security_center", "الأمان والسجلات وفحص البيئة"),
+            ("secrets", "جرد الأسرار بشكل آمن — المالك فقط"),
+        ],
+    ),
     (
         "المراقبة الحية والنبض",
         [
@@ -646,6 +762,22 @@ async def handle_points(ctx: CommandContext) -> str:
                     f"• {sign}{pts} نقطة — {_esc(entry.get('event_type'))}{note_txt} ({_age(entry.get('created_at'))})"
                 )
         lines.append("\nللتعديل: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>")
+        identifier = str(detail.get("uid") or "")
+        if identifier:
+            set_reply_buttons(
+                [
+                    [
+                        cmd_button("🏆 +100", "grantpoints", [identifier, "100"]),
+                        cmd_button("🏆 +500", "grantpoints", [identifier, "500"]),
+                        cmd_button("➖ -100", "grantpoints", [identifier, "-100"]),
+                    ],
+                    [
+                        cmd_button("⭐ Gold", "membership", [identifier, "gold", "30"]),
+                        cmd_button("💎 Diamond", "membership", [identifier, "diamond", "365"]),
+                        cmd_button("🏅 Pro", "setbadge", [identifier, "pro"]),
+                    ],
+                ]
+            )
         return "\n".join(lines)
 
     overview = await admin_actions.get_points_overview(limit=10)
@@ -1015,6 +1147,11 @@ async def handle_user(ctx: CommandContext) -> str:
                     cmd_button("🏆 +100 نقطة", "grantpoints", [uid_val, "100"]),
                     cmd_button("🏆 +500 نقطة", "grantpoints", [uid_val, "500"]),
                     cmd_button("➖ -100 نقطة", "grantpoints", [uid_val, "-100"]),
+                ],
+                [
+                    cmd_button("🏅 Pro", "setbadge", [uid_val, "pro"]),
+                    cmd_button("💠 Premium", "setbadge", [uid_val, "premium"]),
+                    cmd_button("🏆 Founder", "setbadge", [uid_val, "founder"]),
                 ],
             ]
         )

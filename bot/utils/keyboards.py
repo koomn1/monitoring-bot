@@ -105,43 +105,24 @@ def confirmation_buttons(
 def main_menu_buttons() -> Keyboard:
     return [
         [
-            {"text": "📡 الحالة", "callback_data": "cmd|status"},
-            {"text": "📊 لوحة التحكم", "callback_data": "cmd|dashboard"},
+            {"text": "📊 النظرة العامة", "callback_data": "cmd|monitor"},
+            {"text": "🟢 حالة المنصة", "callback_data": "cmd|status"},
         ],
         [
-            {"text": "⚡ النبض الحي", "callback_data": "cmd|pulse"},
-            {"text": "🐛 الأخطاء", "callback_data": "cmd|errors"},
+            {"text": "👥 المستخدمون والنقاط", "callback_data": "cmd|people"},
+            {"text": "💳 العضويات والمدفوعات", "callback_data": "cmd|commerce"},
         ],
         [
-            {"text": "🤖 حالة الذكاء", "callback_data": "cmd|ai"},
-            {"text": "🚨 الحوادث", "callback_data": "cmd|incidents"},
+            {"text": "📝 المحتوى والاختبارات", "callback_data": "cmd|content"},
+            {"text": "⚙️ إعدادات Quiz Space", "callback_data": "cmd|platform_admin"},
         ],
         [
-            {"text": "💳 المدفوعات", "callback_data": "cmd|payments"},
-            {"text": "🎁 طلبات المتجر", "callback_data": "cmd|orders"},
+            {"text": "🚀 النشر والنسخ الاحتياطي", "callback_data": "cmd|operations"},
+            {"text": "🛡️ الأمان والسجلات", "callback_data": "cmd|security_center"},
         ],
         [
-            {"text": "👥 المستخدمون", "callback_data": "cmd|users"},
-            {"text": "🏆 النقاط", "callback_data": "cmd|points"},
-        ],
-        [
-            {"text": "💎 الباقات", "callback_data": "cmd|plans"},
-            {"text": "📝 الاختبارات", "callback_data": "cmd|quizzes"},
-        ],
-        [
-            {"text": "📈 التحليلات", "callback_data": "cmd|analytics"},
-            {"text": "📋 التقارير", "callback_data": "cmd|reports"},
-        ],
-        [
-            {"text": "🗄️ قاعدة البيانات", "callback_data": "cmd|database"},
-            {"text": "🛡️ الأمان", "callback_data": "cmd|security"},
-        ],
-        [
-            {"text": "🎟️ الكوبونات", "callback_data": "cmd|coupon"},
-            {"text": "⚙️ المنصة", "callback_data": "cmd|platform"},
-        ],
-        [
-            {"text": "🔑 فحص المفاتيح", "callback_data": "cmd|envcheck"},
+            {"text": "🔄 تحديث الحالة", "callback_data": "cmd|dashboard"},
+            {"text": "❓ دليل الاستخدام", "callback_data": "cmd|help"},
         ],
     ]
 
@@ -187,6 +168,15 @@ _REFRESHABLE = {
     "envcheck",
 }
 _MENU_COMMANDS = {"start", "help"}
+_SECTION_COMMANDS = {
+    "monitor",
+    "people",
+    "commerce",
+    "content",
+    "platform_admin",
+    "operations",
+    "security_center",
+}
 
 
 def _default_filter_rows(command: str) -> Keyboard:
@@ -217,6 +207,8 @@ def buttons_for(command: str, args: list[str]) -> Keyboard | None:
         rows.extend(_default_filter_rows(command))
     if command in _REFRESHABLE:
         rows.extend(refresh_button(command, args))
+    elif command in _SECTION_COMMANDS:
+        rows.append([{"text": "🏠 القائمة الرئيسية", "callback_data": "cmd|start"}])
     else:
         rows.extend(back_to_menu_buttons())
     return rows
