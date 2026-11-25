@@ -110,7 +110,11 @@ async def test_destructive_action_requires_confirmation_first(router_env):
     assert "Are you sure" in text
     assert buttons is not None
     assert buttons[0][0]["text"] == "✅ تأكيد"
-    assert buttons[0][0]["callback_data"] == "confirm|testdestructive|"
+    callback_data = buttons[0][0]["callback_data"]
+    assert callback_data.startswith("confirm_tok|")
+    from bot.utils.keyboards import resolve_confirmation_token
+    token = callback_data.split("|", 1)[1]
+    assert resolve_confirmation_token(token, user_id=222, chat_id=1) == ("testdestructive", [])
 
 
 async def test_destructive_action_executes_when_confirmed(router_env):
