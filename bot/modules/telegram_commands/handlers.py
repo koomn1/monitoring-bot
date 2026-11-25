@@ -150,7 +150,15 @@ async def handle_content(ctx: CommandContext) -> str:
 async def handle_platform_admin(ctx: CommandContext) -> str:
     _section_buttons([
         [("⚙️ إعدادات المنصة", "platform", None), ("🧩 إعدادات التشغيل", "settings", None)],
-        [("📣 طريقة إرسال إشعار", "input_help", ["notify"]), ("📊 التحليلات", "analytics", None)],
+        [
+            (
+                "📣 إرسال صيانة للجميع",
+                "notify",
+                ["all", "صيانة سريعة", "|", "سيتم تحديث السيرفر خلال 10 دقائق"],
+            ),
+            ("📝 إشعار مخصص", "input_help", ["notify"]),
+        ],
+        [("📊 التحليلات", "analytics", None)],
     ])
     return "⚙️ <b>إعدادات Quiz Space</b>\n\nتحكم في الصيانة والتسجيل والإعدادات التشغيلية والإشعارات."
 
