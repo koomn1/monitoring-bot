@@ -309,9 +309,9 @@ def test_long_confirmation_uses_short_token_within_64_bytes():
     assert cb_data.startswith("confirm_tok|")
 
     token = cb_data.split("|", 1)[1]
-    resolved = resolve_confirmation_token(token)
+    resolved = resolve_confirmation_token(token, user_id=111, chat_id=222)
     assert resolved == ("grantpoints", [long_uid, "500", "reward for bug report"])
-    assert resolve_confirmation_token(token) is None  # one-time pop
+    assert resolve_confirmation_token(token, user_id=111, chat_id=222) is None  # one-time pop
 
 
 def test_split_telegram_text_respects_limit():
