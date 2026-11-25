@@ -22,27 +22,27 @@ from bot.modules.notifications import service as notifications_service
 
 async def trigger_build(*, confirmed: bool = False) -> str:
     if not confirmed:
-        raise ConfirmationRequiredError("build", "Trigger a build from the current main branch?")
+        raise ConfirmationRequiredError("build", "هل تريد تشغيل بناء المشروع من فرع main الحالي؟")
     await github_client.dispatch_workflow("build.yml")
     await notifications_service.notify_deployment_started("build")
-    return "🔨 Build triggered. Use /system to check GitHub Actions status."
+    return "🔨 تم تشغيل البناء. استخدم /system لمتابعة حالة GitHub Actions."
 
 
 async def trigger_deploy(*, confirmed: bool = False, environment: str = "production") -> str:
     if not confirmed:
-        raise ConfirmationRequiredError("deploy", f"Deploy the current main branch to {environment}?", extra_args=[environment])
+        raise ConfirmationRequiredError("deploy", f"هل تريد نشر فرع main الحالي إلى {environment}؟", extra_args=[environment])
     await github_client.dispatch_workflow("deploy.yml", inputs={"environment": environment})
     await notifications_service.notify_deployment_started(environment)
-    return f"🚀 Deployment to {environment} triggered."
+    return f"🚀 تم تشغيل النشر إلى {environment}."
 
 
 async def trigger_rollback(*, confirmed: bool = False, target_sha: str | None = None) -> str:
     if not confirmed:
-        label = f"to commit {target_sha}" if target_sha else "to the previous successful deployment"
-        raise ConfirmationRequiredError("rollback", f"Roll back production {label}?", extra_args=[target_sha] if target_sha else [])
+        label = f"إلى الكوميت {target_sha}" if target_sha else "إلى آخر نشر ناجح"
+        raise ConfirmationRequiredError("rollback", f"هل تريد التراجع عن نشر الإنتاج {label}؟", extra_args=[target_sha] if target_sha else [])
     await github_client.dispatch_workflow("rollback.yml", inputs={"target_sha": target_sha or ""})
     await notifications_service.notify_rollback_started()
-    return "⏪ Rollback triggered."
+    return "⏪ تم تشغيل التراجع عن النشر."
 
 
 async def get_deployment_status() -> dict[str, Any]:

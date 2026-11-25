@@ -47,7 +47,7 @@ async def test_trigger_backup_dispatches_workflow_when_confirmed(monkeypatch, ba
 
     result = await backup_service.trigger_backup(confirmed=True)
     assert dispatched == ["backup.yml"]
-    assert "triggered" in result.lower()
+    assert "النسخ الاحتياطي" in result
 
 
 async def test_trigger_restore_without_confirmation_raises_with_backup_id(backup_service):

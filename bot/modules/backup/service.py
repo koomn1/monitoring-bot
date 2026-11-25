@@ -24,24 +24,24 @@ logger = logging.getLogger("modules.backup")
 
 async def trigger_backup(*, confirmed: bool = False) -> str:
     if not confirmed:
-        raise ConfirmationRequiredError("backup", "Start a manual backup of the production database now?")
+        raise ConfirmationRequiredError("backup", "هل تريد بدء نسخة احتياطية يدوية لقاعدة بيانات الإنتاج الآن؟")
     logger.info("Backup triggered")
     await github_client.dispatch_workflow("backup.yml")
     await notifications_service.notify_backup_started()
-    return "💾 Backup triggered."
+    return "💾 تم تشغيل النسخ الاحتياطي."
 
 
 async def trigger_restore(*, confirmed: bool, backup_id: str) -> str:
     if not confirmed:
         raise ConfirmationRequiredError(
             "restore",
-            f"Restore from backup '{backup_id}'? This OVERWRITES current production data.",
+            f"هل تريد الاستعادة من النسخة '{backup_id}'؟ هذا الإجراء يستبدل بيانات الإنتاج الحالية.",
             extra_args=[backup_id],
         )
     logger.warning("RESTORE triggered — backup_id=%s (destructive, overwrites production data)", backup_id)
     await github_client.dispatch_workflow("restore.yml", inputs={"backup_id": backup_id})
     await notifications_service.notify_restore_started(backup_id)
-    return f"♻️ Restore from '{backup_id}' triggered. This is a destructive, audited action."
+    return f"♻️ تم تشغيل الاستعادة من '{backup_id}'. هذا إجراء حساس ومسجل في السجل."
 
 
 async def list_backups() -> list[dict[str, Any]]:

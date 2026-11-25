@@ -15,11 +15,11 @@ def to_iso(dt: datetime) -> str:
 
 def humanize_delta(dt: datetime) -> str:
     delta = utc_now() - dt
-    seconds = int(delta.total_seconds())
+    seconds = max(0, int(delta.total_seconds()))
     if seconds < 60:
-        return f"{seconds}s ago"
+        return f"منذ {seconds} ث"
     if seconds < 3600:
-        return f"{seconds // 60}m ago"
+        return f"منذ {seconds // 60} د"
     if seconds < 86400:
-        return f"{seconds // 3600}h ago"
-    return f"{seconds // 86400}d ago"
+        return f"منذ {seconds // 3600} س"
+    return f"منذ {seconds // 86400} ي"
