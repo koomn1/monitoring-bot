@@ -12,12 +12,13 @@ Callback data format (kept within Telegram's 64-byte cap):
   "cmdp_tok|<token>"             — run a command with longer args and a parent page
   "confirm|<command>|<a,b,c>"    — confirm pending action (when <= 64 bytes)
   "confirm_tok|<token>"          — confirm pending action with longer args
-  "cancel|<command>"             — cancel a pending action
+  "cancel_tok|<token>"            — cancel and invalidate a pending action
 """
 
 from __future__ import annotations
 
 import secrets
+import threading
 import time
 from collections import OrderedDict
 from contextvars import ContextVar
@@ -29,6 +30,7 @@ _MAX_CALLBACK_BYTES = 64
 _MAX_PENDING_TOKENS = 200
 _CONFIRMATION_TTL_SECONDS = 300
 _PENDING_CONFIRMATIONS: OrderedDict[str, tuple[str, list[str], int, int, float]] = OrderedDict()
+_CONFIRMATION_LOCK = threading.Lock()
 _PENDING_COMMANDS: OrderedDict[str, tuple[str, list[str]]] = OrderedDict()
 _PENDING_COMMAND_ORIGINS: OrderedDict[str, str] = OrderedDict()
 _REPLY_EXTRA_BUTTONS: ContextVar[Keyboard | None] = ContextVar("_REPLY_EXTRA_BUTTONS", default=None)
@@ -57,18 +59,19 @@ def set_button_parent(command: str | None) -> None:
 def resolve_confirmation_token(
     token: str, *, user_id: int, chat_id: int
 ) -> tuple[str, list[str]] | None:
-    """Resolve a one-time confirmation only for its initiating user and chat."""
-    pending = _PENDING_CONFIRMATIONS.get(token)
-    if pending is None:
-        return None
-    command, args, owner_user_id, owner_chat_id, expires_at = pending
-    if time.monotonic() >= expires_at:
+    """Atomically consume a confirmation for its initiating user and chat."""
+    with _CONFIRMATION_LOCK:
+        pending = _PENDING_CONFIRMATIONS.get(token)
+        if pending is None:
+            return None
+        command, args, owner_user_id, owner_chat_id, expires_at = pending
+        if time.monotonic() >= expires_at:
+            _PENDING_CONFIRMATIONS.pop(token, None)
+            return None
+        if owner_user_id != user_id or owner_chat_id != chat_id:
+            return None
         _PENDING_CONFIRMATIONS.pop(token, None)
-        return None
-    if owner_user_id != user_id or owner_chat_id != chat_id:
-        return None
-    _PENDING_CONFIRMATIONS.pop(token, None)
-    return command, args
+        return command, args
 
 
 def resolve_command_token(token: str) -> tuple[str, list[str]] | None:
@@ -113,19 +116,20 @@ def confirmation_buttons(
     """Create an opaque confirmation bound to its initiator and chat."""
     args = list(extra_args or [])
     token = secrets.token_urlsafe(18)
-    _PENDING_CONFIRMATIONS[token] = (
-        command,
-        args,
-        user_id,
-        chat_id,
-        time.monotonic() + _CONFIRMATION_TTL_SECONDS,
-    )
-    while len(_PENDING_CONFIRMATIONS) > _MAX_PENDING_TOKENS:
-        _PENDING_CONFIRMATIONS.popitem(last=False)
+    with _CONFIRMATION_LOCK:
+        _PENDING_CONFIRMATIONS[token] = (
+            command,
+            args,
+            user_id,
+            chat_id,
+            time.monotonic() + _CONFIRMATION_TTL_SECONDS,
+        )
+        while len(_PENDING_CONFIRMATIONS) > _MAX_PENDING_TOKENS:
+            _PENDING_CONFIRMATIONS.popitem(last=False)
 
     return [[
         {"text": "✅ تأكيد", "callback_data": f"confirm_tok|{token}"},
-        {"text": "❌ إلغاء", "callback_data": f"cancel|{command}"},
+        {"text": "❌ إلغاء", "callback_data": f"cancel_tok|{token}"},
     ]]
 
 

@@ -144,8 +144,8 @@ async def _telegram_command_entrypoint(update: Update, context: ContextTypes.DEF
 async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles every inline-button tap: menu shortcuts ("cmd|status"),
-    confirmations ("confirm|deploy|production" or "confirm_tok|<token>"),
-    and cancellations ("cancel|deploy").
+    confirmations ("confirm_tok|<token>"),
+    and cancellations ("cancel_tok|<token>").
     """
     query = update.callback_query
     if query is None or query.data is None or query.from_user is None or query.message is None:
@@ -156,6 +156,19 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     action, _, rest = query.data.partition("|")
 
     parent_command: str | None = None
+
+    if action == "cancel_tok":
+        cancelled = resolve_confirmation_token(
+            rest, user_id=query.from_user.id, chat_id=query.message.chat_id
+        )
+        if cancelled is None:
+            await query.edit_message_text("⚠️ انتهت صلاحية التأكيد أو تم إلغاؤه مسبقًا.")
+            return
+        await query.edit_message_text(
+            "🚫 تم الإلغاء — لم يتم إجراء أي تعديل.",
+            reply_markup=_to_inline_markup(back_to_menu_buttons()),
+        )
+        return
 
     if action == "cancel":
         await query.edit_message_text(
