@@ -509,3 +509,43 @@ async def get_top_users_by_points(*, limit: int = 10) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("Failed fetching top users by points: %s", exc)
         return []
+
+
+# ---------------------------------------------------------------------------
+# Subscription plans & quizzes (read-only views)
+# ---------------------------------------------------------------------------
+
+async def list_subscription_plans() -> list[dict[str, Any]]:
+    """List all subscription_plans ordered by priority_level."""
+    try:
+        res = (
+            target_db()
+            .table("subscription_plans")
+            .select(
+                "id,name,name_ar,price,currency,duration_months,"
+                "badge_style,badge_color,priority_level,is_lifetime,is_active"
+            )
+            .order("priority_level")
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching subscription_plans: %s", exc)
+        return []
+
+
+async def list_recent_quizzes(*, limit: int = 15) -> list[dict[str, Any]]:
+    """List recent quizzes with play counts and creator info."""
+    try:
+        res = (
+            target_db()
+            .table("quizzes")
+            .select("id,title,creator_id,is_public,total_plays,created_at")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching quizzes: %s", exc)
+        return []

@@ -104,16 +104,16 @@ async def run_operational_alerts() -> None:
             error_rate = (error_count / total_calls) * 100.0
             if error_rate >= 30.0 and _can_send_alert("ai_error_spike"):
                 await notifications_service.notify_operational_alert(
-                    "AI Error Rate Spike (1h)",
-                    f"{error_count}/{total_calls} AI calls failed ({error_rate:.1f}% errors).",
+                    "ارتفاع حاد في أخطاء الذكاء الاصطناعي (1س)",
+                    f"فشل {error_count} من أصل {total_calls} طلب ذكاء اصطناعي ({error_rate:.1f}% أخطاء).",
                 )
 
         extraction = health.get("extraction") or {}
         stuck_jobs = extraction.get("stuck_jobs") or []
         if stuck_jobs and _can_send_alert("stuck_extraction_jobs"):
             await notifications_service.notify_operational_alert(
-                "Stuck Extraction Jobs Detected",
-                f"{len(stuck_jobs)} extraction job(s) have been processing for >20m.",
+                "تم رصد مهام استخراج عالقة",
+                f"يوجد {len(stuck_jobs)} مهمة استخراج قيد المعالجة منذ أكثر من 20 دقيقة.",
             )
     except Exception:  # noqa: BLE001
         logger.exception("Operational alert scan failed")

@@ -36,10 +36,10 @@ async def test_status_continues_when_api_is_not_configured(monkeypatch):
 
     response = await handle_status(_context())
 
-    assert "Website: Up (23ms)" in response
-    assert "API: Not configured" in response
-    assert "Database: Up" in response
-    assert "Storage: Up" in response
+    assert "الموقع: يعمل (23ms)" in response
+    assert "الـ API: غير مهيأ" in response
+    assert "قاعدة البيانات: يعمل" in response
+    assert "التخزين: يعمل" in response
 
 
 @pytest.mark.asyncio
@@ -63,10 +63,10 @@ async def test_status_continues_when_website_is_not_configured(monkeypatch):
 
     response = await handle_status(_context())
 
-    assert "Website: Not configured" in response
-    assert "API: Up (11ms)" in response
-    assert "Database: Up" in response
-    assert "Storage: Up" in response
+    assert "الموقع: غير مهيأ" in response
+    assert "الـ API: يعمل (11ms)" in response
+    assert "قاعدة البيانات: يعمل" in response
+    assert "التخزين: يعمل" in response
 
 
 def test_website_url_defaults_to_quiz_space(monkeypatch):

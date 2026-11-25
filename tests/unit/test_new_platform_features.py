@@ -262,9 +262,9 @@ async def test_cmd_platform_no_args_shows_state():
     ):
         from bot.modules.telegram_commands.handlers import handle_platform
         out = await handle_platform(_ctx("platform"))
-    assert "Maintenance mode" in out
-    assert "Registrations" in out
-    assert "🟢 OFF" in out
+    assert "وضع الصيانة" in out
+    assert "فتح التسجيل" in out
+    assert "🟢 متوقف" in out
 
 
 # ---------------------------------------------------------------------------
@@ -283,8 +283,8 @@ async def test_cmd_trial_no_args_lists_offers():
     with patch.object(admin_actions, "get_trial_offers", new=AsyncMock(return_value=offers)):
         from bot.modules.telegram_commands.handlers import handle_trial
         out = await handle_trial(_ctx("trial"))
-    assert "7d" in out
-    assert "✅ Active" in out
+    assert "7 يوم" in out
+    assert "✅ نشط" in out
 
 
 # ---------------------------------------------------------------------------
@@ -442,9 +442,10 @@ async def test_supabase_webhook_reward_order_insert_triggers_alert():
         }
         await server._process_supabase_event(payload)
     notify_mock.assert_awaited_once()
-    call_msg: str = notify_mock.call_args[0][0]
-    assert "reward store order" in call_msg.lower()
-    assert "/orders" in call_msg
+    title_arg: str = notify_mock.call_args[0][0]
+    details_arg: str = notify_mock.call_args[0][1]
+    assert "متجر المكافآت" in title_arg
+    assert "/orders" in details_arg
 
 
 # ---------------------------------------------------------------------------
@@ -460,3 +461,51 @@ async def test_list_coupons_empty_on_error():
         from bot.db.repositories import admin_actions_repo
         result = await admin_actions_repo.list_coupons()
     assert result == []
+
+
+# ---------------------------------------------------------------------------
+# 21. Site management commands: /plans, /quizzes, edit_user_field, edit_plan, notify, delete_quiz
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_cmd_plans_and_quizzes():
+    import bot.db.repositories.platform_repo as _plat_repo
+
+    plans = [
+        {"id": "gold", "name": "Gold Plan", "name_ar": "الباقة الذهبية", "price": 99,
+         "currency": "EGP", "duration_months": 1, "badge_style": "premium", "is_lifetime": False, "is_active": True}
+    ]
+    quizzes = [
+        {"id": "quiz-1234", "title": "Arabic Grammar", "is_public": True, "total_plays": 42, "created_at": "2026-01-01T00:00:00Z"}
+    ]
+    with patch.object(_plat_repo, "list_subscription_plans", new=AsyncMock(return_value=plans)), \
+         patch.object(_plat_repo, "list_recent_quizzes", new=AsyncMock(return_value=quizzes)):
+        from bot.modules.telegram_commands.handlers import handle_plans, handle_quizzes
+        plans_out = await handle_plans(_ctx("plans"))
+        quizzes_out = await handle_quizzes(_ctx("quizzes"))
+    assert "Gold Plan" in plans_out
+    assert "99 EGP" in plans_out
+    assert "Arabic Grammar" in quizzes_out
+    assert "42 تشغيل" in quizzes_out
+
+
+@pytest.mark.asyncio
+async def test_edit_user_plan_notify_delete_quiz_require_confirmation():
+    from bot.modules.admin_actions import service as admin_actions
+
+    with patch("bot.modules.admin_actions.service.admin_actions_repo.resolve_user", new=AsyncMock(return_value={"uid": "u1", "name": "Ali"})):
+        with pytest.raises(ConfirmationRequiredError) as e1:
+            await admin_actions.edit_user_field("u1", "name", "Ali Pro", confirmed=False)
+        assert e1.value.command == "edituser"
+
+    with pytest.raises(ConfirmationRequiredError) as e2:
+        await admin_actions.edit_subscription_plan("gold", "price", "120", confirmed=False)
+    assert e2.value.command == "editplan"
+
+    with pytest.raises(ConfirmationRequiredError) as e3:
+        await admin_actions.send_platform_notification("all", "إعلان", "تحديث جديد", confirmed=False)
+    assert e3.value.command == "notify"
+
+    with pytest.raises(ConfirmationRequiredError) as e4:
+        await admin_actions.delete_quiz("quiz-123", confirmed=False)
+    assert e4.value.command == "deletequiz"

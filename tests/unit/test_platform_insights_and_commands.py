@@ -222,19 +222,19 @@ async def test_new_command_handlers_render_useful_telemetry(monkeypatch):
     pulse_out = await handlers.handle_pulse(CommandContext(1, 1, "pulse", [], "/pulse"))
     assert "250" in pulse_out
     assert "Biology &lt;101&gt;" in pulse_out
-    assert "Pending payments: 3" in pulse_out
+    assert "مدفوعات معلّقة: 3" in pulse_out
 
     ai_out = await handlers.handle_ai(CommandContext(1, 1, "ai", [], "/ai"))
-    assert "Success rate: 94.0%" in ai_out
+    assert "نسبة النجاح: 94.0%" in ai_out
     assert "openrouter" in ai_out
 
     pay_out = await handlers.handle_payments(CommandContext(1, 1, "payments", [], "/payments"))
-    assert "Pending review: 2" in pay_out
+    assert "قيد المراجعة: 2" in pay_out
     assert "req-1234" in pay_out
     assert "Pro Monthly" in pay_out
 
     inc_out = await handlers.handle_incidents(CommandContext(1, 1, "incidents", [], "/incidents"))
-    assert "Open Incidents (1)" in inc_out
+    assert "الحوادث المفتوحة (1)" in inc_out
     assert "99.8%" in inc_out
 
     ask_out = await handlers.handle_ask(CommandContext(1, 1, "ask", ["how", "is", "ai?"], "/ask how is ai?"))
@@ -285,8 +285,8 @@ async def test_reports_autogenerates_when_missing(monkeypatch):
 
     report = await reports_service.get_report("daily")
     assert report is not None
-    assert "Daily Report" in report["content"]
-    assert "Pending payments: 1" in report["content"]
+    assert "التقرير اليومي" in report["content"]
+    assert "مدفوعات معلّقة: 1" in report["content"]
     assert len(saved) == 1
 
 
@@ -314,8 +314,8 @@ async def test_operational_alerts_detects_ai_spike_and_deduplicates(monkeypatch)
     await automation_service.run_operational_alerts()  # second run within cooldown must not duplicate
 
     assert len(alerts) == 2
-    assert alerts[0][0] == "AI Error Rate Spike (1h)"
-    assert alerts[1][0] == "Stuck Extraction Jobs Detected"
+    assert alerts[0][0] == "ارتفاع حاد في أخطاء الذكاء الاصطناعي (1س)"
+    assert alerts[1][0] == "تم رصد مهام استخراج عالقة"
 
 
 async def test_rbac_for_new_commands(monkeypatch):

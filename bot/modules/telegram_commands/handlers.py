@@ -25,26 +25,26 @@ from bot.utils.time_utils import humanize_delta
 
 def _esc(value: Any, max_len: int = 80) -> str:
     if value is None:
-        return "N/A"
+        return "غير متاح"
     return html.escape(str(value).strip()[:max_len], quote=False)
 
 
 def _fmt(value: Any, suffix: str = "") -> str:
     if value is None:
-        return "N/A"
+        return "غير متاح"
     return f"{value}{suffix}"
 
 
 def _age(iso_value: Any) -> str:
     if not isinstance(iso_value, str) or not iso_value.strip():
-        return "unknown"
+        return "غير معروف"
     try:
         dt = datetime.fromisoformat(iso_value.strip().replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return humanize_delta(dt)
     except ValueError:
-        return "unknown"
+        return "غير معروف"
 
 
 def _parse_hours_arg(args: list[str], default_hours: int = 24) -> tuple[int, str]:
@@ -68,82 +68,87 @@ async def handle_start(ctx: CommandContext) -> str:
 
     await auth_service.authenticate(ctx.user_id, username=None)
     return (
-        f"{title('Quiz Space Operations Bot', 'wave')}\n\n"
-        "Live monitoring, platform pulse, AI pipeline telemetry, payment queue, "
-        "and deployment control for Quiz Space.\n\n"
-        "Use the buttons below or send /help for all commands."
+        f"{title('لوحة إدارة ومراقبة Quiz Space', 'wave')}\n\n"
+        "مراقبة حية، إدارة المستخدمين والعضويات، مراجعة المدفوعات والنقاط، "
+        "تعديل الباقات والكوبونات، وتشخيص أخطاء الذكاء الاصطناعي بالكامل.\n\n"
+        "استخدم الأزرار بالأسفل أو أرسل /help لعرض جميع الأوامر."
     )
 
 
 _HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
     (
-        "Live Telemetry & Pulse",
+        "المراقبة الحية والنبض",
         [
-            ("status", "Service health, realtime & open incidents"),
-            ("dashboard", "Full executive snapshot (users, quizzes, AI, ops)"),
-            ("pulse", "Live platform activity (sessions, completions, top quizzes)"),
-            ("ai", "AI pipeline logs & extraction job queue"),
-            ("payments", "Pending premium activation requests"),
-            ("incidents", "Open/recent incidents & 24h service uptime"),
+            ("status", "حالة الخدمات، الاتصال اللحظي والحوادث المفتوحة"),
+            ("dashboard", "الملخص التنفيذي الشامل للمنصة"),
+            ("pulse", "النشاط الحي (الجلسات، الإكمالات، أشهر الاختبارات)"),
+            ("ai", "أداء الذكاء الاصطناعي وطابور مهام الاستخراج"),
+            ("payments", "طلبات تفعيل الاشتراك والمدفوعات المعلّقة"),
+            ("incidents", "الحوادث المفتوحة والسابقة ونسب التشغيل 24س"),
         ],
     ),
     (
-        "Users, Memberships & Points",
+        "إدارة المستخدمين والعضويات والنقاط",
         [
-            ("users", "User growth, premium conversion & newest signups"),
-            ("user", "Full user details, plan, points & requests"),
-            ("payments", "Pending & recent subscription payment requests"),
-            ("approve", "Approve a pending payment request (Owner)"),
-            ("reject", "Reject a pending payment request (Owner)"),
-            ("membership", "Change user plan (free/silver/gold/diamond/lifetime/founder)"),
-            ("suspend", "Suspend or unsuspend a user account (Owner)"),
-            ("setbadge", "Update user badge_tier (Owner)"),
-            ("points", "Points leaderboard or one user's balance & ledger"),
-            ("grantpoints", "Add or deduct user reward points (Owner)"),
-            ("orders", "Reward store orders queue"),
-            ("approveorder", "Approve reward store order & credit points (Owner)"),
-            ("rejectorder", "Reject reward store order (Owner)"),
+            ("users", "نمو المستخدمين، نسبة البريميوم وأحدث المسجلين"),
+            ("user", "ملف المستخدم الكامل: الباقة، النقاط، السجل والطلبات"),
+            ("edituser", "تعديل بيانات المستخدم (الاسم، اللون، الصلاحية، XP) — المالك"),
+            ("approve", "الموافقة على طلب دفع وتفعيل الاشتراك (المالك)"),
+            ("reject", "رفض طلب دفع مع ذكر السبب (المالك)"),
+            ("membership", "تغيير باقة المستخدم (free/silver/gold/diamond/lifetime/founder)"),
+            ("suspend", "إيقاف أو تفعيل حساب مستخدم (المالك)"),
+            ("setbadge", "تغيير شارة المستخدم badge_tier (المالك)"),
+            ("points", "متصدرو النقاط أو تفاصيل رصيد وسجل مستخدم"),
+            ("grantpoints", "إضافة أو خصم نقاط لمستخدم (المالك)"),
+            ("orders", "طابور طلبات متجر المكافآت"),
+            ("approveorder", "الموافقة على طلب متجر وإضافة النقاط (المالك)"),
+            ("rejectorder", "رفض طلب متجر المكافآت (المالك)"),
         ],
     ),
     (
-        "Platform Controls",
+        "إدارة الموقع والباقات والكوبونات",
         [
-            ("platform", "View/toggle maintenance mode & registration (Owner)"),
-            ("trial", "View/toggle trial offer durations 7/14/30 days (Owner)"),
-            ("coupon", "List, create, activate, deactivate, or delete coupons (Owner)"),
-            ("vitals", "Web Vitals report: CLS, LCP, FCP, INP, TTFB — p75 & avg"),
-            ("topusers", "Top users leaderboard by XP or reward points"),
+            ("plans", "عرض جميع باقات الاشتراك وأسعارها"),
+            ("editplan", "تعديل سعر أو اسم أو حالة باقة اشتراك (المالك)"),
+            ("platform", "عرض/تعديل وضع الصيانة وفتح التسجيل (المالك)"),
+            ("trial", "عرض/تفعيل عروض التجربة المجانية 7/14/30 يوم (المالك)"),
+            ("coupon", "عرض/إنشاء/تفعيل/حذف كوبونات الخصم (المالك)"),
+            ("notify", "إرسال إشعار داخل الموقع لمستخدم أو للجميع (المالك)"),
+            ("quizzes", "عرض أحدث الاختبارات في المنصة"),
+            ("deletequiz", "حذف اختبار من المنصة (المالك)"),
+            ("vitals", "تقرير مؤشرات الأداء Web Vitals"),
+            ("topusers", "قائمة المتصدرين حسب XP أو النقاط"),
         ],
     ),
     (
-        "Analytics & AI Assistant",
+        "التحليلات والمساعد الذكي",
         [
-            ("analytics", "Platform analytics, Web Vitals & Umami traffic"),
-            ("reports", "Periodic & performance reports (daily/weekly/monthly/performance)"),
-            ("ask", "Ask the AI ops assistant about live metrics"),
+            ("analytics", "تحليلات المنصة ومؤشرات الأداء والزيارات"),
+            ("reports", "التقارير الدورية والأداء (daily/weekly/monthly/performance)"),
+            ("ask", "اسأل المساعد الذكي عن حالة المنصة والأرقام الحالية"),
         ],
     ),
     (
-        "Infrastructure & Security",
+        "البنية التحتية والأمان",
         [
-            ("database", "DB health, 24h uptime & table row counts"),
-            ("storage", "Storage buckets & object counts"),
-            ("system", "GitHub, Cloudflare Pages & Firebase status"),
-            ("errors", "Sentry issues + recent AI/extraction errors"),
-            ("security", "Dependabot alerts & unauthorized access attempts"),
-            ("logs", "Recent bot command audit trail"),
+            ("database", "صحة قاعدة البيانات، نسبة التشغيل وعدد الصفوف"),
+            ("storage", "حاويات التخزين وعدد الملفات"),
+            ("system", "حالة GitHub و Cloudflare Pages و Firebase"),
+            ("errors", "تقرير الأخطاء الشامل (Sentry + AI + الاستخراج + الفحوصات)"),
+            ("security", "تنبيهات Dependabot ومحاولات الوصول غير المصرح بها"),
+            ("logs", "سجل تنفيذ أوامر البوت"),
         ],
     ),
     (
-        "Deployment & Admin",
+        "النشر والإعدادات",
         [
-            ("deploy", "Trigger production deployment"),
-            ("build", "Trigger build workflow"),
-            ("rollback", "Rollback production deployment (Owner)"),
-            ("backup", "Trigger or list backups"),
-            ("restore", "Restore from backup (Owner)"),
-            ("settings", "View/update runtime settings (Owner)"),
-            ("setrole", "Grant ADMIN/VIEWER role (Owner)"),
+            ("deploy", "تشغيل نشر الإنتاج"),
+            ("build", "تشغيل بناء المشروع"),
+            ("rollback", "التراجع عن آخر نشر (المالك)"),
+            ("backup", "إنشاء أو عرض النسخ الاحتياطية"),
+            ("restore", "استعادة نسخة احتياطية (المالك)"),
+            ("settings", "عرض/تعديل إعدادات البوت (المالك)"),
+            ("setrole", "منح صلاحية ADMIN أو VIEWER لمستخدم تليجرام (المالك)"),
         ],
     ),
 ]
@@ -152,7 +157,7 @@ _HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
 @command("help")
 async def handle_help(ctx: CommandContext) -> str:
     known = set(registered_commands())
-    lines = [title("Available Commands"), ""]
+    lines = [title("الأوامر المتاحة"), ""]
     seen: set[str] = set()
     for group_name, items in _HELP_GROUPS:
         present = [(cmd, desc) for cmd, desc in items if cmd in known]
@@ -165,7 +170,7 @@ async def handle_help(ctx: CommandContext) -> str:
         lines.append("")
     leftover = sorted(known - seen - {"start", "help"})
     if leftover:
-        lines.append("<b>Other</b>")
+        lines.append("<b>أوامر أخرى</b>")
         lines.extend(f"/{c}" for c in leftover)
     return "\n".join(lines).strip()
 
@@ -196,24 +201,24 @@ async def handle_status(ctx: CommandContext) -> str:
     realtime = await check_optional_monitor(realtime_monitor.check_realtime)
 
     lines = [
-        title("Quiz Space — System Status", "dashboard"),
+        title("Quiz Space — حالة النظام", "dashboard"),
         status_line(
-            "Website",
+            "الموقع",
             website["status"],
             f"{website['latency_ms']}ms" if website.get("latency_ms") is not None else "",
         ),
         status_line(
-            "API",
+            "الـ API",
             api["status"],
             f"{api['latency_ms']}ms" if api.get("latency_ms") is not None else "",
         ),
-        status_line("Database", database["status"], f"{database.get('latency_ms', '?')}ms"),
-        status_line("Storage", storage["status"], f"{storage.get('bucket_count', 0)} buckets"),
+        status_line("قاعدة البيانات", database["status"], f"{database.get('latency_ms', '?')}ms"),
+        status_line("التخزين", storage["status"], f"{storage.get('bucket_count', 0)} حاوية"),
     ]
 
     if realtime.get("status") != "not configured":
         rt_extra = f"{realtime['latency_ms']}ms" if realtime.get("latency_ms") is not None else ""
-        lines.append(status_line("Realtime", realtime["status"], rt_extra))
+        lines.append(status_line("الاتصال اللحظي", realtime["status"], rt_extra))
 
     try:
         uptime = await insights_service.get_uptime_and_incidents(hours=24)
@@ -227,8 +232,8 @@ async def handle_status(ctx: CommandContext) -> str:
             ]
             if uptime_parts:
                 lines.append("")
-                lines.append("<b>24h Uptime:</b> " + " | ".join(uptime_parts))
-        lines.append(f"🚨 Open incidents: {len(open_inc)}")
+                lines.append("<b>نسبة التشغيل (24س):</b> " + " | ".join(uptime_parts))
+        lines.append(f"🚨 الحوادث المفتوحة: {len(open_inc)}")
     except Exception:  # noqa: BLE001
         pass
 
@@ -243,17 +248,17 @@ async def handle_dashboard(ctx: CommandContext) -> str:
     analytics = await analytics_service.get_analytics_summary()
     try:
         deployment = await deployment_service.get_deployment_status()
-        deployment_status = deployment.get("conclusion") or deployment.get("status") or "unknown"
+        deployment_status = deployment.get("conclusion") or deployment.get("status") or "غير معروف"
     except ConfigurationError as exc:
-        deployment_status = f"Not configured — {exc}"
+        deployment_status = f"غير مهيأ — {exc}"
     except Exception as exc:  # noqa: BLE001
-        deployment_status = f"Unavailable ({_esc(exc, 60)})"
+        deployment_status = f"غير متاح ({_esc(exc, 60)})"
 
     error_count = analytics.get("error_count")
     lines = [
-        title("Quiz Space — Dashboard", "reports"),
-        f"Last deployment: {_esc(deployment_status)}",
-        f"Errors (24h): {error_count if error_count is not None else 'N/A'}",
+        title("Quiz Space — لوحة التحكم", "reports"),
+        f"آخر نشر: {_esc(deployment_status)}",
+        f"الأخطاء (24س): {error_count if error_count is not None else 'غير متاح'}",
     ]
 
     pulse = analytics.get("pulse") or {}
@@ -268,31 +273,31 @@ async def handle_dashboard(ctx: CommandContext) -> str:
         lines.extend(
             [
                 "",
-                "<b>Users &amp; Sessions</b>",
-                f"• Total: {_fmt(users.get('total'))} | Premium: {_fmt(users.get('premium'))} | "
-                f"New (24h): {_fmt(users.get('signups_recent'))}",
-                f"• Active sessions: 1h={_fmt(users.get('active_1h'))} | 24h={_fmt(users.get('active_24h'))}",
+                "<b>المستخدمون والجلسات</b>",
+                f"• الإجمالي: {_fmt(users.get('total'))} | بريميوم: {_fmt(users.get('premium'))} | "
+                f"جدد (24س): {_fmt(users.get('signups_recent'))}",
+                f"• الجلسات النشطة: 1س={_fmt(users.get('active_1h'))} | 24س={_fmt(users.get('active_24h'))}",
                 "",
-                "<b>Quiz Activity (24h)</b>",
-                f"• Quizzes: {_fmt(activity.get('total_quizzes'))} (+{_fmt(activity.get('quizzes_recent'))} new) | "
-                f"Classrooms: {_fmt(activity.get('total_classrooms'))}",
-                f"• Completions: {_fmt(activity.get('completions_recent'))} | "
-                f"Guests: {_fmt(activity.get('guest_attempts_recent'))} | "
-                f"Avg score: {_fmt(activity.get('avg_score_pct'), '%')}",
-                f"• Cosmo chats (24h): {_fmt(activity.get('cosmo_conversations_recent'))}",
+                "<b>نشاط الاختبارات (24س)</b>",
+                f"• الاختبارات: {_fmt(activity.get('total_quizzes'))} (+{_fmt(activity.get('quizzes_recent'))} جديد) | "
+                f"الفصول: {_fmt(activity.get('total_classrooms'))}",
+                f"• الإكمالات: {_fmt(activity.get('completions_recent'))} | "
+                f"الضيوف: {_fmt(activity.get('guest_attempts_recent'))} | "
+                f"متوسط الدرجة: {_fmt(activity.get('avg_score_pct'), '%')}",
+                f"• محادثات Cosmo (24س): {_fmt(activity.get('cosmo_conversations_recent'))}",
                 "",
-                "<b>AI &amp; Extraction (24h)</b>",
-                f"• AI calls: {_fmt(ai.get('total_calls'))} | "
-                f"Success: {_fmt(ai.get('success_rate_pct'), '%')} | "
-                f"Avg/P95: {_fmt(ai.get('avg_latency_ms'), 'ms')} / {_fmt(ai.get('p95_latency_ms'), 'ms')}",
-                f"• Extraction: active={_fmt((extraction.get('pending_count') or 0) + (extraction.get('processing_count') or 0))}, "
-                f"done={_fmt(extraction.get('complete_recent'))}, err={_fmt(extraction.get('error_recent'))}, "
-                f"stuck={len(extraction.get('stuck_jobs') or [])}",
+                "<b>الذكاء الاصطناعي والاستخراج (24س)</b>",
+                f"• طلبات الذكاء: {_fmt(ai.get('total_calls'))} | "
+                f"النجاح: {_fmt(ai.get('success_rate_pct'), '%')} | "
+                f"المتوسط/P95: {_fmt(ai.get('avg_latency_ms'), 'ms')} / {_fmt(ai.get('p95_latency_ms'), 'ms')}",
+                f"• مهام الاستخراج: نشطة={_fmt((extraction.get('pending_count') or 0) + (extraction.get('processing_count') or 0))}, "
+                f"مكتملة={_fmt(extraction.get('complete_recent'))}, أخطاء={_fmt(extraction.get('error_recent'))}, "
+                f"عالقة={len(extraction.get('stuck_jobs') or [])}",
                 "",
-                "<b>Operations</b>",
-                f"• Pending payments: {_fmt(payments.get('pending_count'))} | "
-                f"Needs info: {_fmt(payments.get('needs_info_count'))} | "
-                f"Open incidents: {len(open_incidents)}",
+                "<b>العمليات</b>",
+                f"• مدفوعات معلّقة: {_fmt(payments.get('pending_count'))} | "
+                f"تحتاج بيانات: {_fmt(payments.get('needs_info_count'))} | "
+                f"حوادث مفتوحة: {len(open_incidents)}",
             ]
         )
 
@@ -313,40 +318,40 @@ async def handle_pulse(ctx: CommandContext) -> str:
     open_incidents = pulse.get("open_incidents") or []
 
     lines = [
-        f"⚡ <b>Quiz Space Live Pulse ({label})</b>",
+        f"⚡ <b>النبض الحي لـ Quiz Space ({label})</b>",
         "",
-        "<b>Audience</b>",
-        f"• Users: {_fmt(users.get('total'))} (Premium: {_fmt(users.get('premium'))})",
-        f"• New signups ({label}): {_fmt(users.get('signups_recent'))}",
-        f"• Active sessions: 1h={_fmt(users.get('active_1h'))} | 24h={_fmt(users.get('active_24h'))}",
+        "<b>الجمهور</b>",
+        f"• المستخدمون: {_fmt(users.get('total'))} (بريميوم: {_fmt(users.get('premium'))})",
+        f"• تسجيلات جديدة ({label}): {_fmt(users.get('signups_recent'))}",
+        f"• الجلسات النشطة: 1س={_fmt(users.get('active_1h'))} | 24س={_fmt(users.get('active_24h'))}",
         "",
-        "<b>Learning &amp; Engagement</b>",
-        f"• Quizzes created ({label}): {_fmt(activity.get('quizzes_recent'))} (total {_fmt(activity.get('total_quizzes'))})",
-        f"• Completions ({label}): {_fmt(activity.get('completions_recent'))} | Avg score: {_fmt(activity.get('avg_score_pct'), '%')}",
-        f"• Guest attempts ({label}): {_fmt(activity.get('guest_attempts_recent'))}",
-        f"• Cosmo conversations ({label}): {_fmt(activity.get('cosmo_conversations_recent'))}",
+        "<b>التعلم والتفاعل</b>",
+        f"• اختبارات منشأة ({label}): {_fmt(activity.get('quizzes_recent'))} (الإجمالي {_fmt(activity.get('total_quizzes'))})",
+        f"• الإكمالات ({label}): {_fmt(activity.get('completions_recent'))} | متوسط الدرجة: {_fmt(activity.get('avg_score_pct'), '%')}",
+        f"• محاولات الضيوف ({label}): {_fmt(activity.get('guest_attempts_recent'))}",
+        f"• محادثات Cosmo ({label}): {_fmt(activity.get('cosmo_conversations_recent'))}",
     ]
 
     top_quizzes = activity.get("top_quizzes") or []
     if top_quizzes:
         lines.append("")
-        lines.append("<b>Top Quizzes (All-time plays)</b>")
+        lines.append("<b>أشهر الاختبارات (إجمالي التشغيل)</b>")
         for q in top_quizzes[:3]:
             lines.append(
-                f"• {_esc(q.get('title'), 42)} — {q.get('total_plays', 0)} plays"
+                f"• {_esc(q.get('title'), 42)} — {q.get('total_plays', 0)} تشغيل"
             )
 
     lines.extend(
         [
             "",
-            "<b>Pipeline &amp; Ops</b>",
-            f"• AI ({label}): {_fmt(ai.get('total_calls'))} calls, "
-            f"{_fmt(ai.get('success_rate_pct'), '%')} ok, "
-            f"{_fmt(ai.get('avg_latency_ms'), 'ms')} avg",
-            f"• Extraction queue: pending={_fmt(extraction.get('pending_count'))}, "
-            f"processing={_fmt(extraction.get('processing_count'))}, "
-            f"stuck={len(extraction.get('stuck_jobs') or [])}",
-            f"• Pending payments: {_fmt(payments.get('pending_count'))} | Open incidents: {len(open_incidents)}",
+            "<b>خط الذكاء والعمليات</b>",
+            f"• الذكاء ({label}): {_fmt(ai.get('total_calls'))} طلب، "
+            f"{_fmt(ai.get('success_rate_pct'), '%')} نجاح، "
+            f"متوسط {_fmt(ai.get('avg_latency_ms'), 'ms')}",
+            f"• طابور الاستخراج: قيد الانتظار={_fmt(extraction.get('pending_count'))}، "
+            f"قيد المعالجة={_fmt(extraction.get('processing_count'))}، "
+            f"عالقة={len(extraction.get('stuck_jobs') or [])}",
+            f"• مدفوعات معلّقة: {_fmt(payments.get('pending_count'))} | حوادث مفتوحة: {len(open_incidents)}",
         ]
     )
     return "\n".join(lines)
@@ -361,39 +366,39 @@ async def handle_ai(ctx: CommandContext) -> str:
     ai = data.get("ai") or {}
     ext = data.get("extraction") or {}
 
-    lines = [f"🤖 <b>AI &amp; Extraction Health ({label})</b>", ""]
+    lines = [f"🤖 <b>صحة الذكاء الاصطناعي والاستخراج ({label})</b>", ""]
 
     if not ai.get("available", True):
-        lines.append("• AI logs: unavailable")
+        lines.append("• سجلات الذكاء: غير متاحة")
     else:
         lines.extend(
             [
-                "<b>AI Performance Logs</b>",
-                f"• Total calls: {ai.get('total_calls', 0)} (✅ {ai.get('success_count', 0)} / ❌ {ai.get('error_count', 0)})",
-                f"• Success rate: {_fmt(ai.get('success_rate_pct'), '%')}",
-                f"• Latency: avg {_fmt(ai.get('avg_latency_ms'), 'ms')} | p95 {_fmt(ai.get('p95_latency_ms'), 'ms')}",
+                "<b>سجلات أداء الذكاء الاصطناعي</b>",
+                f"• إجمالي الطلبات: {ai.get('total_calls', 0)} (✅ {ai.get('success_count', 0)} / ❌ {ai.get('error_count', 0)})",
+                f"• نسبة النجاح: {_fmt(ai.get('success_rate_pct'), '%')}",
+                f"• زمن الاستجابة: متوسط {_fmt(ai.get('avg_latency_ms'), 'ms')} | P95 {_fmt(ai.get('p95_latency_ms'), 'ms')}",
             ]
         )
         by_provider = ai.get("by_provider") or {}
         if by_provider:
-            lines.append("• By provider:")
+            lines.append("• حسب المزود:")
             for prov, stats in sorted(by_provider.items(), key=lambda item: -item[1]["calls"]):
                 lines.append(
-                    f"  - {_esc(prov)}: {stats['calls']} calls, {stats['errors']} err, "
-                    f"avg {_fmt(stats.get('avg_latency_ms'), 'ms')}"
+                    f"  - {_esc(prov)}: {stats['calls']} طلب، {stats['errors']} خطأ، "
+                    f"متوسط {_fmt(stats.get('avg_latency_ms'), 'ms')}"
                 )
         by_op = ai.get("by_operation") or {}
         if by_op:
-            op_parts = [f"{_esc(op)}={st['calls']}({st['errors']} err)" for op, st in sorted(by_op.items())]
-            lines.append("• By operation: " + ", ".join(op_parts))
+            op_parts = [f"{_esc(op)}={st['calls']}({st['errors']} خطأ)" for op, st in sorted(by_op.items())]
+            lines.append("• حسب العملية: " + "، ".join(op_parts))
 
         recent_errors = ai.get("recent_errors") or []
         if recent_errors:
             lines.append("")
-            lines.append("<b>Recent AI Errors</b>")
+            lines.append("<b>أحدث أخطاء الذكاء الاصطناعي</b>")
             for err in recent_errors[:5]:
                 cat = err.get("error_category") or "error"
-                msg = err.get("error_message") or "no details"
+                msg = err.get("error_message") or "بدون تفاصيل"
                 lines.append(
                     f"• [{_esc(err.get('provider'))}/{_esc(err.get('operation'))}] "
                     f"{_esc(cat)}: {_esc(msg, 70)} ({_age(err.get('created_at'))})"
@@ -401,26 +406,26 @@ async def handle_ai(ctx: CommandContext) -> str:
 
     lines.append("")
     if not ext.get("available", True):
-        lines.append("• Extraction jobs: unavailable")
+        lines.append("• مهام الاستخراج: غير متاحة")
     else:
         stuck = ext.get("stuck_jobs") or []
         lines.extend(
             [
-                "<b>Extraction Queue</b>",
-                f"• Active: pending={ext.get('pending_count', 0)}, processing={ext.get('processing_count', 0)}, stuck={len(stuck)}",
-                f"• Last {label}: complete={ext.get('complete_recent', 0)}, failed={ext.get('error_recent', 0)}",
+                "<b>طابور الاستخراج</b>",
+                f"• النشط: انتظار={ext.get('pending_count', 0)}، معالجة={ext.get('processing_count', 0)}، عالقة={len(stuck)}",
+                f"• آخر {label}: مكتملة={ext.get('complete_recent', 0)}، فاشلة={ext.get('error_recent', 0)}",
             ]
         )
         if stuck:
-            lines.append("• Stuck jobs:")
+            lines.append("• مهام عالقة:")
             for job in stuck[:3]:
                 lines.append(
-                    f"  - #{_esc(str(job.get('id', ''))[:8])} ({job.get('progress_percentage', 0)}%, "
-                    f"updated {_age(job.get('updated_at'))})"
+                    f"  - #{_esc(str(job.get('id', ''))[:8])} ({job.get('progress_percentage', 0)}%، "
+                    f"آخر تحديث {_age(job.get('updated_at'))})"
                 )
         ext_errors = ext.get("recent_errors") or []
         if ext_errors:
-            lines.append("• Recent extraction failures:")
+            lines.append("• أحدث فشل في الاستخراج:")
             for err in ext_errors[:3]:
                 lines.append(
                     f"  - #{_esc(str(err.get('id', ''))[:8])} [{_esc(err.get('extraction_mode'))}]: "
@@ -451,33 +456,33 @@ async def handle_payments(ctx: CommandContext) -> str:
     items = detailed if detailed else (summary.get("pending_items") or [])
 
     lines = [
-        f"💳 <b>Subscription &amp; Payment Queue ({'All Recent' if show_all else 'Pending'})</b>",
-        f"• Pending review: {_fmt(pending_count)} | Needs info: {_fmt(needs_info)}",
-        f"• Last 7d decisions: ✅ {_fmt(approved_7d)} approved | ❌ {_fmt(rejected_7d)} rejected",
+        f"💳 <b>طابور الاشتراكات والمدفوعات ({'الكل حديثاً' if show_all else 'المعلّقة'})</b>",
+        f"• قيد المراجعة: {_fmt(pending_count)} | تحتاج بيانات: {_fmt(needs_info)}",
+        f"• قرارات آخر 7 أيام: ✅ {_fmt(approved_7d)} مقبول | ❌ {_fmt(rejected_7d)} مرفوض",
     ]
     if items:
         lines.append("")
-        lines.append("<b>Requests</b>")
+        lines.append("<b>الطلبات</b>")
         for req in items:
             req_id = str(req.get("id") or "")
             short_id = req_id[:8]
-            plan = _esc(req.get("plan_name") or "unknown", 40)
+            plan = _esc(req.get("plan_name") or "غير محدد", 40)
             req_status = _esc(req.get("status") or "pending", 20)
-            who = _esc(req.get("name") or req.get("user_id") or "user", 32)
+            who = _esc(req.get("name") or req.get("user_id") or "مستخدم", 32)
             email = req.get("email")
             email_txt = f" &lt;{_esc(email, 45)}&gt;" if email else ""
             shot = str(req.get("payment_screenshot") or "").strip()
-            proof_tag = " [Trial]" if shot.startswith("TRIAL_OFFER_") else (" [Receipt]" if shot else "")
+            proof_tag = " [تجريبي]" if shot.startswith("TRIAL_OFFER_") else (" [إيصال مرفق]" if shot else "")
             lines.append(
                 f"• <code>{_esc(short_id)}</code> — {who}{email_txt}\n"
-                f"  Plan: {plan} | Status: {req_status}{proof_tag} ({_age(req.get('created_at'))})"
+                f"  الباقة: {plan} | الحالة: {req_status}{proof_tag} ({_age(req.get('created_at'))})"
             )
             if req.get("reject_reason"):
-                lines.append(f"  Reason: {_esc(req.get('reject_reason'), 80)}")
+                lines.append(f"  السبب: {_esc(req.get('reject_reason'), 80)}")
         lines.append("")
-        lines.append("Actions: <code>/approve &lt;id&gt;</code> | <code>/reject &lt;id&gt; [reason]</code>")
+        lines.append("الإجراءات: <code>/approve &lt;id&gt;</code> | <code>/reject &lt;id&gt; [السبب]</code>")
     else:
-        lines.append("\n✅ No pending payment requests.")
+        lines.append("\n✅ لا توجد طلبات دفع معلّقة.")
 
     return "\n".join(lines)
 
@@ -487,19 +492,19 @@ async def handle_approve(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
     if not ctx.args:
-        return "Usage: /approve <request_id>"
+        return "الاستخدام: /approve <request_id>"
     confirmed = "confirm" in ctx.args
     request_id = next((a for a in ctx.args if a != "confirm"), "")
     if not request_id:
-        return "Usage: /approve <request_id>"
+        return "الاستخدام: /approve <request_id>"
 
     result = await admin_actions.approve_payment(request_id, confirmed=confirmed)
     return (
-        "✅ <b>Payment Approved &amp; Subscription Activated</b>\n"
-        f"• Request: <code>{_esc(result['request_id'])}</code>\n"
-        f"• User: {_esc(result.get('user_name') or result['user_id'])} (<code>{_esc(result['user_id'])}</code>)\n"
-        f"• Plan: {_esc(result['plan_name'])} (<code>{_esc(result['plan_id'])}</code>)\n"
-        f"• Renewal: {_esc(result.get('renewal_date'))}"
+        "✅ <b>تمت الموافقة على الدفع وتفعيل الاشتراك</b>\n"
+        f"• الطلب: <code>{_esc(result['request_id'])}</code>\n"
+        f"• المستخدم: {_esc(result.get('user_name') or result['user_id'])} (<code>{_esc(result['user_id'])}</code>)\n"
+        f"• الباقة: {_esc(result['plan_name'])} (<code>{_esc(result['plan_id'])}</code>)\n"
+        f"• التجديد: {_esc(result.get('renewal_date'))}"
     )
 
 
@@ -508,20 +513,20 @@ async def handle_reject(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
     if not ctx.args:
-        return "Usage: /reject <request_id> [reason]"
+        return "الاستخدام: /reject <request_id> [السبب]"
     confirmed = "confirm" in ctx.args
     args = [a for a in ctx.args if a != "confirm"]
     if not args:
-        return "Usage: /reject <request_id> [reason]"
+        return "الاستخدام: /reject <request_id> [السبب]"
     request_id = args[0]
     reason = " ".join(args[1:]).strip()
 
     result = await admin_actions.reject_payment(request_id, reason=reason, confirmed=confirmed)
     return (
-        "❌ <b>Payment Request Rejected</b>\n"
-        f"• Request: <code>{_esc(result['request_id'])}</code>\n"
-        f"• User: {_esc(result.get('user_name') or result['user_id'])}\n"
-        f"• Reason: {_esc(result.get('reject_reason'))}"
+        "❌ <b>تم رفض طلب الدفع</b>\n"
+        f"• الطلب: <code>{_esc(result['request_id'])}</code>\n"
+        f"• المستخدم: {_esc(result.get('user_name') or result['user_id'])}\n"
+        f"• السبب: {_esc(result.get('reject_reason'))}"
     )
 
 
@@ -533,23 +538,23 @@ async def handle_membership(ctx: CommandContext) -> str:
     confirmed = "confirm" in ctx.args
     if len(args) < 2:
         return (
-            "Usage: /membership <uid_or_email> <free|silver|gold|diamond|lifetime|founder> [days]\n"
-            "Example: /membership user@example.com gold 30"
+            "الاستخدام: /membership <uid_or_email> <free|silver|gold|diamond|lifetime|founder> [days]\n"
+            "مثال: /membership user@example.com gold 30"
         )
     identifier, plan_key = args[0], args[1]
     days: int | None = None
     if len(args) >= 3:
         if not args[2].isdigit() or int(args[2]) <= 0:
-            return "Days must be a positive whole number."
+            return "عدد الأيام يجب أن يكون رقماً موجباً صحيحاً."
         days = int(args[2])
 
     result = await admin_actions.set_membership(identifier, plan_key, days=days, confirmed=confirmed)
     return (
-        "⭐ <b>Membership Updated</b>\n"
-        f"• User: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
-        f"• Premium: {result['is_premium']} | Plan: {_esc(result['plan_name'])}\n"
-        f"• Lifetime: {result['is_lifetime']} | Founder: {result['is_founder']}\n"
-        f"• Renewal: {_esc(result.get('renewal_date'))}"
+        "⭐ <b>تم تحديث العضوية</b>\n"
+        f"• المستخدم: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
+        f"• بريميوم: {result['is_premium']} | الباقة: {_esc(result['plan_name'])}\n"
+        f"• مدى الحياة: {result['is_lifetime']} | مؤسس: {result['is_founder']}\n"
+        f"• التجديد: {_esc(result.get('renewal_date'))}"
     )
 
 
@@ -560,16 +565,16 @@ async def handle_suspend(ctx: CommandContext) -> str:
     args = [a for a in ctx.args if a != "confirm"]
     confirmed = "confirm" in ctx.args
     if len(args) < 2 or args[1].lower() not in ("on", "off", "true", "false"):
-        return "Usage: /suspend <uid_or_email> <on|off>"
+        return "الاستخدام: /suspend <uid_or_email> <on|off>"
     identifier = args[0]
     suspended = args[1].lower() in ("on", "true")
 
     result = await admin_actions.set_suspension(identifier, suspended=suspended, confirmed=confirmed)
-    state_label = "Suspended 🚫" if result["is_suspended"] else "Active ✅"
+    state_label = "موقوف 🚫" if result["is_suspended"] else "نشط ✅"
     return (
-        "🛡️ <b>Account Status Updated</b>\n"
-        f"• User: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
-        f"• Status: {state_label}"
+        "🛡️ <b>تم تحديث حالة الحساب</b>\n"
+        f"• المستخدم: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
+        f"• الحالة: {state_label}"
     )
 
 
@@ -580,11 +585,11 @@ async def handle_setbadge(ctx: CommandContext) -> str:
     args = [a for a in ctx.args if a != "confirm"]
     confirmed = "confirm" in ctx.args
     if len(args) < 2:
-        return "Usage: /setbadge <uid_or_email> <none|pro|premium|team|enterprise|lifetime|founder>"
+        return "الاستخدام: /setbadge <uid_or_email> <none|pro|premium|team|enterprise|lifetime|founder>"
     result = await admin_actions.set_badge_tier(args[0], args[1], confirmed=confirmed)
     return (
-        "🏅 <b>Badge Tier Updated</b>\n"
-        f"• User: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
+        "🏅 <b>تم تحديث الشارة</b>\n"
+        f"• المستخدم: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
         f"• badge_tier: <code>{_esc(result['badge_tier'])}</code>"
     )
 
@@ -597,52 +602,52 @@ async def handle_points(ctx: CommandContext) -> str:
         detail = await admin_actions.get_user_points_detail(ctx.args[0])
         bal = detail.get("balance") or {}
         lines = [
-            f"🏆 <b>Points &amp; Rewards — {_esc(detail.get('name') or detail['uid'])}</b>",
-            f"• UID: <code>{_esc(detail['uid'])}</code>",
-            f"• Points: <b>{bal.get('points', 0):,}</b> | Coins: {bal.get('coins', 0):,} | Reward Level: {bal.get('level', 1)}",
-            f"• Quiz XP: {detail.get('xp', 0):,} | Profile Level: {detail.get('user_level', 1)}",
+            f"🏆 <b>النقاط والمكافآت — {_esc(detail.get('name') or detail['uid'])}</b>",
+            f"• المعرّف: <code>{_esc(detail['uid'])}</code>",
+            f"• النقاط: <b>{bal.get('points', 0):,}</b> | العملات: {bal.get('coins', 0):,} | مستوى المكافآت: {bal.get('level', 1)}",
+            f"• نقاط الخبرة XP: {detail.get('xp', 0):,} | مستوى الملف: {detail.get('user_level', 1)}",
         ]
         ledger = detail.get("ledger") or []
         if ledger:
             lines.append("")
-            lines.append("<b>Recent Points Ledger</b>")
+            lines.append("<b>أحدث حركات النقاط</b>")
             for entry in ledger[:10]:
                 pts = int(entry.get("points") or 0)
                 sign = "+" if pts >= 0 else ""
                 note = ((entry.get("metadata") or {}).get("note") or "") if isinstance(entry.get("metadata"), dict) else ""
                 note_txt = f" ({_esc(note, 45)})" if note else ""
                 lines.append(
-                    f"• {sign}{pts} pts — {_esc(entry.get('event_type'))}{note_txt} ({_age(entry.get('created_at'))})"
+                    f"• {sign}{pts} نقطة — {_esc(entry.get('event_type'))}{note_txt} ({_age(entry.get('created_at'))})"
                 )
-        lines.append("\nAdjust: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [note]</code>")
+        lines.append("\nللتعديل: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>")
         return "\n".join(lines)
 
     overview = await admin_actions.get_points_overview(limit=10)
     top_bal = overview.get("top_balances") or []
     recent_led = overview.get("recent_ledger") or []
-    lines = ["🏆 <b>Points &amp; Rewards Overview</b>", ""]
+    lines = ["🏆 <b>ملخص النقاط والمكافآت</b>", ""]
     if top_bal:
-        lines.append("<b>Top Balances</b>")
+        lines.append("<b>أعلى الأرصدة</b>")
         for idx, row in enumerate(top_bal, start=1):
             lines.append(
                 f"{idx}. {_esc(row.get('display_name'), 28)} (<code>{_esc(str(row.get('user_id', ''))[:8])}</code>) — "
-                f"{int(row.get('points') or 0):,} pts | {int(row.get('coins') or 0):,} coins | Lvl {row.get('level', 1)}"
+                f"{int(row.get('points') or 0):,} نقطة | {int(row.get('coins') or 0):,} عملة | مستوى {row.get('level', 1)}"
             )
     else:
-        lines.append("• No reward balances recorded yet.")
+        lines.append("• لا توجد أرصدة نقاط مسجلة بعد.")
 
     if recent_led:
         lines.append("")
-        lines.append("<b>Recent Points Transactions</b>")
+        lines.append("<b>أحدث معاملات النقاط</b>")
         for entry in recent_led[:8]:
             pts = int(entry.get("points") or 0)
             sign = "+" if pts >= 0 else ""
             lines.append(
-                f"• <code>{_esc(str(entry.get('user_id', ''))[:8])}</code>: {sign}{pts} pts "
+                f"• <code>{_esc(str(entry.get('user_id', ''))[:8])}</code>: {sign}{pts} نقطة "
                 f"[{_esc(entry.get('event_type'))}] ({_age(entry.get('created_at'))})"
             )
 
-    lines.append("\nUser lookup: <code>/points &lt;uid_or_email&gt;</code> | Adjust: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [note]</code>")
+    lines.append("\nبحث مستخدم: <code>/points &lt;uid_or_email&gt;</code> | تعديل: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>")
     return "\n".join(lines)
 
 
@@ -653,12 +658,12 @@ async def handle_grantpoints(ctx: CommandContext) -> str:
     confirmed = "confirm" in ctx.args
     args = [a for a in ctx.args if a != "confirm"]
     if len(args) < 2:
-        return "Usage: /grantpoints <uid_or_email> <+/-amount> [note]"
+        return "الاستخدام: /grantpoints <uid_or_email> <+/-amount> [ملاحظة]"
     identifier = args[0]
     try:
         delta = int(args[1])
     except ValueError:
-        return "Amount must be a whole number (e.g. 500 or -100)."
+        return "الكمية يجب أن تكون رقماً صحيحاً (مثال: 500 أو -100)."
     note = " ".join(args[2:]).strip()
 
     result = await admin_actions.adjust_points(
@@ -670,10 +675,10 @@ async def handle_grantpoints(ctx: CommandContext) -> str:
     )
     sign = "+" if result["delta"] >= 0 else ""
     return (
-        "🏆 <b>Points Updated</b>\n"
-        f"• User: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
-        f"• Change: {sign}{result['delta']:,} pts\n"
-        f"• Balance: {result['previous_points']:,} → <b>{result['total_points']:,}</b> pts (Level {result['level']})"
+        "🏆 <b>تم تحديث النقاط</b>\n"
+        f"• المستخدم: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
+        f"• التغيير: {sign}{result['delta']:,} نقطة\n"
+        f"• الرصيد: {result['previous_points']:,} ← <b>{result['total_points']:,}</b> نقطة (المستوى {result['level']})"
     )
 
 
@@ -682,22 +687,22 @@ async def handle_orders(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
     orders = await admin_actions.list_reward_orders(limit=15)
-    lines = ["🎁 <b>Reward Store Orders</b>", ""]
+    lines = ["🎁 <b>طلبات متجر المكافآت</b>", ""]
     if not orders:
-        lines.append("✅ No reward store orders found.")
+        lines.append("✅ لا توجد طلبات في متجر المكافآت.")
         return "\n".join(lines)
 
     for order in orders:
         oid = str(order.get("id") or "")
         lines.append(
-            f"• <code>{_esc(oid[:8])}</code> — item={_esc(order.get('item_id'))} | "
-            f"status=<b>{_esc(order.get('status'))}</b> | "
-            f"{order.get('amount_egp', 0)} EGP / {order.get('amount_points', 0)} pts "
+            f"• <code>{_esc(oid[:8])}</code> — الصنف={_esc(order.get('item_id'))} | "
+            f"الحالة=<b>{_esc(order.get('status'))}</b> | "
+            f"{order.get('amount_egp', 0)} ج.م / {order.get('amount_points', 0)} نقطة "
             f"[{_esc(order.get('payment_method'))}] ({_age(order.get('created_at'))})"
         )
         if order.get("payment_reference"):
-            lines.append(f"  Ref: <code>{_esc(order.get('payment_reference'), 60)}</code>")
-    lines.append("\nActions: <code>/approveorder &lt;id&gt;</code> | <code>/rejectorder &lt;id&gt; [note]</code>")
+            lines.append(f"  المرجع: <code>{_esc(order.get('payment_reference'), 60)}</code>")
+    lines.append("\nالإجراءات: <code>/approveorder &lt;id&gt;</code> | <code>/rejectorder &lt;id&gt; [ملاحظة]</code>")
     return "\n".join(lines)
 
 
@@ -708,7 +713,7 @@ async def handle_approveorder(ctx: CommandContext) -> str:
     confirmed = "confirm" in ctx.args
     args = [a for a in ctx.args if a != "confirm"]
     if not args:
-        return "Usage: /approveorder <order_id> [note]"
+        return "الاستخدام: /approveorder <order_id> [ملاحظة]"
     result = await admin_actions.review_order(
         args[0],
         "approved",
@@ -717,10 +722,10 @@ async def handle_approveorder(ctx: CommandContext) -> str:
         confirmed=confirmed,
     )
     return (
-        "✅ <b>Reward Order Approved</b>\n"
-        f"• Order: <code>{_esc(result['order_id'])}</code>\n"
-        f"• User: <code>{_esc(result['user_id'])}</code>\n"
-        f"• Points added: +{result.get('points_added', 0):,} (New total: {result.get('total_points', 0):,}, Level {result.get('level', 1)})"
+        "✅ <b>تمت الموافقة على طلب المتجر</b>\n"
+        f"• الطلب: <code>{_esc(result['order_id'])}</code>\n"
+        f"• المستخدم: <code>{_esc(result['user_id'])}</code>\n"
+        f"• النقاط المضافة: +{result.get('points_added', 0):,} (الإجمالي الجديد: {result.get('total_points', 0):,}، المستوى {result.get('level', 1)})"
     )
 
 
@@ -731,7 +736,7 @@ async def handle_rejectorder(ctx: CommandContext) -> str:
     confirmed = "confirm" in ctx.args
     args = [a for a in ctx.args if a != "confirm"]
     if not args:
-        return "Usage: /rejectorder <order_id> [note]"
+        return "الاستخدام: /rejectorder <order_id> [ملاحظة]"
     result = await admin_actions.review_order(
         args[0],
         "rejected",
@@ -740,9 +745,9 @@ async def handle_rejectorder(ctx: CommandContext) -> str:
         confirmed=confirmed,
     )
     return (
-        "❌ <b>Reward Order Rejected</b>\n"
-        f"• Order: <code>{_esc(result['order_id'])}</code>\n"
-        f"• User: <code>{_esc(result['user_id'])}</code>"
+        "❌ <b>تم رفض طلب المتجر</b>\n"
+        f"• الطلب: <code>{_esc(result['order_id'])}</code>\n"
+        f"• المستخدم: <code>{_esc(result['user_id'])}</code>"
     )
 
 
@@ -756,34 +761,34 @@ async def handle_incidents(ctx: CommandContext) -> str:
     recent_incidents = data.get("recent_incidents") or []
     services = data.get("services") or {}
 
-    lines = [f"🚨 <b>Incidents &amp; Uptime ({label})</b>", ""]
+    lines = [f"🚨 <b>الحوادث ونسبة التشغيل ({label})</b>", ""]
     if open_incidents:
-        lines.append(f"<b>Open Incidents ({len(open_incidents)})</b>")
+        lines.append(f"<b>الحوادث المفتوحة ({len(open_incidents)})</b>")
         for inc in open_incidents:
             lines.append(
                 f"• 🔴 <b>{_esc(inc.get('service'))}</b> — {_esc(inc.get('details'), 80)} "
-                f"(opened {_age(inc.get('opened_at'))})"
+                f"(فُتحت {_age(inc.get('opened_at'))})"
             )
     else:
-        lines.append("🟢 No open incidents.")
+        lines.append("🟢 لا توجد حوادث مفتوحة.")
 
     if services:
         lines.append("")
-        lines.append(f"<b>Service Uptime ({label})</b>")
+        lines.append(f"<b>نسبة تشغيل الخدمات ({label})</b>")
         for svc, st in sorted(services.items()):
             lines.append(
                 f"• {_esc(svc)}: {_fmt(st.get('uptime_pct'), '%')} "
-                f"({st.get('checks', 0)} checks, avg {_fmt(st.get('avg_latency_ms'), 'ms')})"
+                f"({st.get('checks', 0)} فحص، متوسط {_fmt(st.get('avg_latency_ms'), 'ms')})"
             )
 
     resolved = [i for i in recent_incidents if i.get("resolved_at")]
     if resolved:
         lines.append("")
-        lines.append("<b>Recent Resolved Incidents</b>")
+        lines.append("<b>أحدث الحوادث المحلولة</b>")
         for inc in resolved[:5]:
             lines.append(
                 f"• ✅ {_esc(inc.get('service'))}: {_esc(inc.get('details'), 60)} "
-                f"(opened {_age(inc.get('opened_at'))})"
+                f"(فُتحت {_age(inc.get('opened_at'))})"
             )
 
     return "\n".join(lines)
@@ -802,33 +807,33 @@ async def handle_users(ctx: CommandContext) -> str:
     recent = summary.get("recent_signups") or []
 
     lines = [
-        title("Users", "users"),
-        f"Total: {total}",
-        f"Premium: {premium} ({pct})",
-        f"Recent signups: {len(recent)}",
+        title("المستخدمون", "users"),
+        f"الإجمالي: {total}",
+        f"البريميوم: {premium} ({pct})",
+        f"أحدث المسجلين: {len(recent)}",
     ]
 
     extra_parts = []
     if summary.get("signups_24h") is not None:
-        extra_parts.append(f"24h: +{summary['signups_24h']}")
+        extra_parts.append(f"24س: +{summary['signups_24h']}")
     if summary.get("signups_7d") is not None:
-        extra_parts.append(f"7d: +{summary['signups_7d']}")
+        extra_parts.append(f"7أ: +{summary['signups_7d']}")
     if summary.get("active_sessions_24h") is not None:
-        extra_parts.append(f"Active 24h: {summary['active_sessions_24h']}")
+        extra_parts.append(f"نشط 24س: {summary['active_sessions_24h']}")
     if summary.get("suspended_users") is not None:
-        extra_parts.append(f"Suspended: {summary['suspended_users']}")
+        extra_parts.append(f"موقوف: {summary['suspended_users']}")
     if summary.get("pending_payments") is not None:
-        extra_parts.append(f"Pending payments: {summary['pending_payments']}")
+        extra_parts.append(f"مدفوعات معلّقة: {summary['pending_payments']}")
     if extra_parts:
         lines.append(" | ".join(extra_parts))
 
     if recent:
         lines.append("")
-        lines.append("<b>Newest Signups</b>")
+        lines.append("<b>أحدث المسجلين</b>")
         for u in recent[:5]:
             uid_short = str(u.get("uid") or "")[:8]
-            display_name = _esc(u.get("name") or uid_short or "user", 32)
-            tier = "⭐ Premium" if u.get("is_premium") else "Free"
+            display_name = _esc(u.get("name") or uid_short or "مستخدم", 32)
+            tier = "⭐ بريميوم" if u.get("is_premium") else "مجاني"
             lines.append(f"• {display_name} ({_esc(uid_short)}) — {tier} ({_age(u.get('created_at'))})")
 
     return "\n".join(lines)
@@ -844,10 +849,10 @@ async def handle_user(ctx: CommandContext) -> str:
     from bot.modules.users import service as users_service
 
     if not ctx.args:
-        return "Usage: /user <uid_or_email_or_custom_id>"
+        return "الاستخدام: /user <uid_or_email_or_custom_id>"
     identifier = ctx.args[0]
     if not (_UID_RE.match(identifier) or _EMAIL_RE.match(identifier)):
-        return "Invalid identifier — expected a user uid, custom_id, or email address."
+        return "معرّف غير صالح — أدخل uid أو custom_id أو البريد الإلكتروني."
 
     full_profile = None
     try:
@@ -858,13 +863,13 @@ async def handle_user(ctx: CommandContext) -> str:
     if full_profile is None:
         detail = await users_service.get_user_detail(identifier)
         if detail is None:
-            return f"No user found matching '{_esc(identifier)}'."
+            return f"لم يتم العثور على مستخدم مطابق لـ '{_esc(identifier)}'."
         preferred_keys = (
             "name", "email", "is_premium", "plan_name", "is_lifetime",
             "is_founder", "is_admin", "is_suspended", "badge_tier", "onboarded", "created_at",
         )
         lines = [f"{k}: {_esc(detail.get(k))}" for k in preferred_keys if k in detail]
-        return f"{title('User', 'users')}\nuid: {_esc(detail.get('uid'))}\n" + "\n".join(lines)
+        return f"{title('المستخدم', 'users')}\nuid: {_esc(detail.get('uid'))}\n" + "\n".join(lines)
 
     u = full_profile["user"]
     bal = full_profile.get("reward_balance") or {}
@@ -872,35 +877,35 @@ async def handle_user(ctx: CommandContext) -> str:
     reqs = full_profile.get("recent_requests") or []
 
     lines = [
-        f"{title('User Full Profile', 'users')}",
-        f"• UID: <code>{_esc(u.get('uid'))}</code>"
-        + (f" | Custom ID: <code>{_esc(u.get('custom_id'))}</code>" if u.get("custom_id") else ""),
-        f"• Name: {_esc(u.get('name'))} | Email: {_esc(u.get('email'))}",
-        f"• Admin: {bool(u.get('is_admin'))} | Suspended: {bool(u.get('is_suspended'))} | Onboarded: {bool(u.get('onboarded'))}",
-        f"• Created: {_age(u.get('created_at'))}",
+        f"{title('الملف الكامل للمستخدم', 'users')}",
+        f"• المعرّف UID: <code>{_esc(u.get('uid'))}</code>"
+        + (f" | المعرّف المخصص: <code>{_esc(u.get('custom_id'))}</code>" if u.get("custom_id") else ""),
+        f"• الاسم: {_esc(u.get('name'))} | البريد: {_esc(u.get('email'))}",
+        f"• أدمن: {bool(u.get('is_admin'))} | موقوف: {bool(u.get('is_suspended'))} | مكتمل: {bool(u.get('onboarded'))}",
+        f"• تاريخ التسجيل: {_age(u.get('created_at'))}",
         "",
-        "<b>Membership &amp; Badges</b>",
-        f"• Premium: {bool(u.get('is_premium'))} | Plan: {_esc(u.get('plan_name'))} (<code>{_esc(u.get('plan_id'))}</code>)",
-        f"• Lifetime: {bool(u.get('is_lifetime'))} | Founder: {bool(u.get('is_founder'))}",
-        f"• Renewal: {_esc(u.get('renewal_date') or u.get('premium_until'))}",
-        f"• Badge tier: <code>{_esc(u.get('badge_tier'))}</code> | Name color: <code>{_esc(u.get('name_color'))}</code>",
+        "<b>العضوية والشارات</b>",
+        f"• بريميوم: {bool(u.get('is_premium'))} | الباقة: {_esc(u.get('plan_name'))} (<code>{_esc(u.get('plan_id'))}</code>)",
+        f"• مدى الحياة: {bool(u.get('is_lifetime'))} | مؤسس: {bool(u.get('is_founder'))}",
+        f"• التجديد: {_esc(u.get('renewal_date') or u.get('premium_until'))}",
+        f"• الشارة: <code>{_esc(u.get('badge_tier'))}</code> | لون الاسم: <code>{_esc(u.get('name_color'))}</code>",
         "",
-        "<b>Points &amp; Progression</b>",
-        f"• Reward Points: <b>{int(bal.get('points') or 0):,}</b> | Coins: {int(bal.get('coins') or 0):,} | Reward Level: {bal.get('level', 1)}",
-        f"• XP: {int(u.get('xp') or 0):,} | Profile Level: {u.get('level', 1)}",
+        "<b>النقاط والتقدم</b>",
+        f"• نقاط المكافآت: <b>{int(bal.get('points') or 0):,}</b> | العملات: {int(bal.get('coins') or 0):,} | مستوى المكافآت: {bal.get('level', 1)}",
+        f"• نقاط الخبرة XP: {int(u.get('xp') or 0):,} | مستوى الملف: {u.get('level', 1)}",
     ]
 
     if ledger:
         lines.append("")
-        lines.append("<b>Recent Points Ledger</b>")
+        lines.append("<b>أحدث حركات النقاط</b>")
         for entry in ledger[:5]:
             pts = int(entry.get("points") or 0)
             sign = "+" if pts >= 0 else ""
-            lines.append(f"• {sign}{pts} pts — {_esc(entry.get('event_type'))} ({_age(entry.get('created_at'))})")
+            lines.append(f"• {sign}{pts} نقطة — {_esc(entry.get('event_type'))} ({_age(entry.get('created_at'))})")
 
     if reqs:
         lines.append("")
-        lines.append("<b>Recent Subscription Requests</b>")
+        lines.append("<b>أحدث طلبات الاشتراك</b>")
         for req in reqs[:5]:
             lines.append(
                 f"• <code>{_esc(str(req.get('id', ''))[:8])}</code> — {_esc(req.get('plan_name'))} "
@@ -910,10 +915,11 @@ async def handle_user(ctx: CommandContext) -> str:
     lines.extend(
         [
             "",
-            "<b>Quick Admin Actions</b>",
-            f"• Plan: <code>/membership {_esc(u.get('uid'))} &lt;free|silver|gold|diamond|lifetime|founder&gt; [days]</code>",
-            f"• Points: <code>/grantpoints {_esc(u.get('uid'))} &lt;+/-amount&gt; [note]</code>",
-            f"• Suspend: <code>/suspend {_esc(u.get('uid'))} &lt;on|off&gt;</code>",
+            "<b>إجراءات سريعة للأدمن</b>",
+            f"• الباقة: <code>/membership {_esc(u.get('uid'))} &lt;free|silver|gold|diamond|lifetime|founder&gt; [days]</code>",
+            f"• النقاط: <code>/grantpoints {_esc(u.get('uid'))} &lt;+/-amount&gt; [ملاحظة]</code>",
+            f"• تعديل بيانات: <code>/edituser {_esc(u.get('uid'))} &lt;name|custom_id|name_color|is_admin|xp|level&gt; &lt;value&gt;</code>",
+            f"• إيقاف: <code>/suspend {_esc(u.get('uid'))} &lt;on|off&gt;</code>",
         ]
     )
     return "\n".join(lines)
@@ -927,21 +933,21 @@ async def handle_database(ctx: CommandContext) -> str:
     from bot.modules.platform_insights import service as insights_service
 
     result = await database_monitor.check_database()
-    lines = [status_line("Database", result["status"], f"{result['latency_ms']}ms")]
+    lines = [status_line("قاعدة البيانات", result["status"], f"{result['latency_ms']}ms")]
 
     try:
         overview = await insights_service.get_database_overview()
         db_stats = overview.get("db_stats_24h") or {}
         if db_stats.get("uptime_pct") is not None:
             lines.append(
-                f"• 24h uptime: {db_stats['uptime_pct']}% "
-                f"(avg {_fmt(db_stats.get('avg_latency_ms'), 'ms')}, {db_stats.get('checks', 0)} checks)"
+                f"• التشغيل (24س): {db_stats['uptime_pct']}% "
+                f"(متوسط {_fmt(db_stats.get('avg_latency_ms'), 'ms')}، {db_stats.get('checks', 0)} فحص)"
             )
         counts = overview.get("table_counts") or {}
         valid_counts = [(tbl, cnt) for tbl, cnt in counts.items() if cnt is not None]
         if valid_counts:
             lines.append("")
-            lines.append("<b>Table Row Counts</b>")
+            lines.append("<b>عدد الصفوف في الجداول</b>")
             for tbl, cnt in valid_counts:
                 lines.append(f"• {html.escape(tbl)}: {cnt:,}")
     except Exception:  # noqa: BLE001
@@ -955,15 +961,15 @@ async def handle_storage(ctx: CommandContext) -> str:
     from bot.modules.storage_monitor import service as storage_monitor
 
     result = await storage_monitor.check_storage()
-    lines = [status_line("Storage", result["status"], f"{result['bucket_count']} buckets")]
+    lines = [status_line("التخزين", result["status"], f"{result['bucket_count']} حاوية")]
     buckets = result.get("buckets") or []
     if buckets:
         lines.append("")
-        lines.append("<b>Buckets</b>")
+        lines.append("<b>الحاويات</b>")
         for b in buckets:
-            vis = "public" if b.get("public") else "private"
+            vis = "عام" if b.get("public") else "خاص"
             entries = b.get("entries_sample")
-            count_note = f", {entries}+ items" if entries is not None else ""
+            count_note = f"، {entries}+ ملف" if entries is not None else ""
             lines.append(f"• {_esc(b.get('name'))} ({vis}{count_note})")
     return "\n".join(lines)
 
@@ -978,24 +984,24 @@ async def handle_system(ctx: CommandContext) -> str:
         repo = await github_service.get_repo_status()
         gh_line = f"GitHub: {_esc(repo.get('latest_commit_sha'))} — {_esc(repo.get('latest_commit_message'), 70)}"
     except ConfigurationError as exc:
-        gh_line = f"GitHub: Not configured ({_esc(exc, 60)})"
+        gh_line = f"GitHub: غير مهيأ ({_esc(exc, 60)})"
     except Exception as exc:  # noqa: BLE001
-        gh_line = f"GitHub: Unavailable ({_esc(exc, 60)})"
+        gh_line = f"GitHub: غير متاح ({_esc(exc, 60)})"
 
     try:
         cf = await cloudflare_service.get_deployment_status()
-        cf_line = f"Cloudflare Pages: {_esc(cf.get('status', 'unknown'))}"
+        cf_line = f"Cloudflare Pages: {_esc(cf.get('status', 'غير معروف'))}"
         if cf.get("url"):
             cf_line += f" ({_esc(cf['url'], 60)})"
     except ConfigurationError as exc:
-        cf_line = f"Cloudflare Pages: Not configured ({_esc(exc, 60)})"
+        cf_line = f"Cloudflare Pages: غير مهيأ ({_esc(exc, 60)})"
     except Exception as exc:  # noqa: BLE001
-        cf_line = f"Cloudflare Pages: Unavailable ({_esc(exc, 60)})"
+        cf_line = f"Cloudflare Pages: غير متاح ({_esc(exc, 60)})"
 
     fb = await firebase_service.get_status()
-    fb_line = f"Firebase: {_esc(fb.get('status', 'unknown'))}"
+    fb_line = f"Firebase: {_esc(fb.get('status', 'غير معروف'))}"
 
-    return "\n".join(["🖥️ <b>System Overview</b>", gh_line, cf_line, fb_line])
+    return "\n".join(["🖥️ <b>نظرة عامة على النظام</b>", gh_line, cf_line, fb_line])
 
 
 # --- Deployment ----------------------------------------------------------------
@@ -1036,14 +1042,14 @@ async def handle_logs(ctx: CommandContext) -> str:
         limit = max(1, min(30, int(ctx.args[0])))
     logs = await logging_service.get_recent_command_logs(limit=limit)
     if not logs:
-        return "No recent activity."
+        return "لا يوجد نشاط حديث."
     lines = []
     for log in logs:
         icon = "❌" if log.get("error") else "✅"
         lines.append(
             f"{icon} /{_esc(log.get('command'))} — {log.get('duration_ms', '?')}ms ({_age(log.get('created_at'))})"
         )
-    return "📜 <b>Recent Activity</b>\n" + "\n".join(lines)
+    return "📜 <b>أحدث الأوامر المنفذة</b>\n" + "\n".join(lines)
 
 
 @command("errors")
@@ -1052,25 +1058,25 @@ async def handle_errors(ctx: CommandContext) -> str:
     from bot.modules.platform_insights import service as insights_service
 
     hours, label = _parse_hours_arg(ctx.args, default_hours=24)
-    lines = [f"🐛 <b>Full Error &amp; Diagnostics Report ({label})</b>", ""]
+    lines = [f"🐛 <b>تقرير الأخطاء والتشخيص الشامل ({label})</b>", ""]
 
     try:
         issues = await sentry_client.get_recent_issues(limit=10)
         if not issues:
-            lines.append("• Sentry: ✅ No unresolved issues.")
+            lines.append("• Sentry: ✅ لا توجد مشاكل غير محلولة.")
         else:
-            lines.append(f"<b>Sentry Issues ({len(issues)})</b>")
+            lines.append(f"<b>مشاكل Sentry ({len(issues)})</b>")
             for issue in issues:
                 culprit = issue.get("culprit")
                 culprit_txt = f" [{_esc(culprit, 40)}]" if culprit else ""
                 lines.append(
-                    f"• {_esc(issue.get('title', 'Unknown error'), 90)}{culprit_txt} "
-                    f"({issue.get('count', '?')}x, {_esc(issue.get('level', 'error'))})"
+                    f"• {_esc(issue.get('title', 'خطأ غير معروف'), 90)}{culprit_txt} "
+                    f"({issue.get('count', '?')}x، {_esc(issue.get('level', 'error'))})"
                 )
     except ConfigurationError:
-        lines.append("• Sentry: Not configured")
+        lines.append("• Sentry: غير مهيأ")
     except Exception as exc:  # noqa: BLE001
-        lines.append(f"• Sentry: Unavailable ({_esc(exc, 80)})")
+        lines.append(f"• Sentry: غير متاح ({_esc(exc, 80)})")
 
     try:
         report = await insights_service.get_detailed_errors_report(hours=hours)
@@ -1085,19 +1091,19 @@ async def handle_errors(ctx: CommandContext) -> str:
 
         lines.append("")
         if open_incidents:
-            lines.append(f"<b>Open Incidents ({len(open_incidents)})</b>")
+            lines.append(f"<b>الحوادث المفتوحة ({len(open_incidents)})</b>")
             for inc in open_incidents:
                 lines.append(
                     f"• 🔴 <b>{_esc(inc.get('service'))}</b>: {_esc(inc.get('details'), 120)} "
-                    f"(opened {_age(inc.get('opened_at'))})"
+                    f"(فُتحت {_age(inc.get('opened_at'))})"
                 )
         else:
-            lines.append("• Open Incidents: ✅ None")
+            lines.append("• الحوادث المفتوحة: ✅ لا يوجد")
 
         lines.append("")
         if ai_errors:
             lines.append(
-                f"<b>AI Pipeline Errors ({ai_data.get('error_count', len(ai_errors))} total in {label})</b>"
+                f"<b>أخطاء الذكاء الاصطناعي ({ai_data.get('error_count', len(ai_errors))} إجمالي في {label})</b>"
             )
             for err in ai_errors[:10]:
                 uid_short = str(err.get("user_id") or "")[:8] or "anon"
@@ -1106,44 +1112,44 @@ async def handle_errors(ctx: CommandContext) -> str:
                 lines.append(
                     f"• [{_esc(err.get('provider'))}{model_txt} | {_esc(err.get('operation'))}{lat_txt} | u:{_esc(uid_short)}] "
                     f"<b>{_esc(err.get('error_category') or 'error')}</b>: "
-                    f"{_esc(err.get('error_message') or 'No message', 180)} ({_age(err.get('created_at'))})"
+                    f"{_esc(err.get('error_message') or 'بدون رسالة', 180)} ({_age(err.get('created_at'))})"
                 )
         else:
-            lines.append(f"• AI Errors ({label}): ✅ None")
+            lines.append(f"• أخطاء الذكاء ({label}): ✅ لا يوجد")
 
         lines.append("")
         if ext_errors or stuck_jobs:
-            lines.append(f"<b>Extraction Failures &amp; Stuck Jobs ({label})</b>")
+            lines.append(f"<b>أخطاء الاستخراج والمهام العالقة ({label})</b>")
             for job in stuck_jobs[:5]:
                 lines.append(
-                    f"• ⏳ STUCK <code>{_esc(str(job.get('id', ''))[:8])}</code> "
-                    f"({job.get('progress_percentage', 0)}%, provider={_esc(job.get('provider'))}, "
-                    f"updated {_age(job.get('updated_at'))})"
+                    f"• ⏳ عالق (STUCK) <code>{_esc(str(job.get('id', ''))[:8])}</code> "
+                    f"({job.get('progress_percentage', 0)}%، المزود={_esc(job.get('provider'))}، "
+                    f"آخر تحديث {_age(job.get('updated_at'))})"
                 )
             for err in ext_errors[:8]:
                 lines.append(
                     f"• ❌ <code>{_esc(str(err.get('id', ''))[:8])}</code> "
                     f"[{_esc(err.get('extraction_mode'))}/{_esc(err.get('provider'))}]: "
-                    f"{_esc(err.get('error_message') or 'No error message', 180)} ({_age(err.get('created_at'))})"
+                    f"{_esc(err.get('error_message') or 'بدون رسالة خطأ', 180)} ({_age(err.get('created_at'))})"
                 )
         else:
-            lines.append(f"• Extraction Failures ({label}): ✅ None")
+            lines.append(f"• أخطاء الاستخراج ({label}): ✅ لا يوجد")
 
         if failed_checks:
             lines.append("")
-            lines.append(f"<b>Failed Health Probes ({label})</b>")
+            lines.append(f"<b>فحوصات الصحة الفاشلة ({label})</b>")
             for chk in failed_checks[:6]:
                 meta = chk.get("metadata") if isinstance(chk.get("metadata"), dict) else {}
                 code = meta.get("status_code")
                 code_txt = f" HTTP {code}" if code is not None else ""
                 lines.append(
                     f"• 🔴 {_esc(chk.get('service'))}{code_txt} "
-                    f"({chk.get('latency_ms', '?')}ms, {_age(chk.get('checked_at'))})"
+                    f"({chk.get('latency_ms', '?')}ms، {_age(chk.get('checked_at'))})"
                 )
 
         if failed_cmds:
             lines.append("")
-            lines.append("<b>Failed Bot Commands</b>")
+            lines.append("<b>أوامر البوت الفاشلة</b>")
             for cmd in failed_cmds[:6]:
                 lines.append(
                     f"• /{_esc(cmd.get('command'))} (u:{cmd.get('user_id')}): "
@@ -1160,20 +1166,20 @@ async def handle_security(ctx: CommandContext) -> str:
     from bot.modules.platform_insights import service as insights_service
     from bot.modules.security import service as security_service
 
-    lines = ["🛡️ <b>Security Overview</b>"]
+    lines = ["🛡️ <b>نظرة عامة على الأمان</b>"]
     try:
         overview = await security_service.get_security_overview()
         dep = overview.get("dependabot") or {}
         by_sev = dep.get("by_severity") or {}
-        sev_str = ", ".join(f"{k}={v}" for k, v in sorted(by_sev.items()))
-        lines.append(f"• Open Dependabot alerts: {dep.get('total_open', 0)}" + (f" ({sev_str})" if sev_str else ""))
-        lines.append(f"• Recent unauthorized attempts: {overview.get('recent_unauthorized_attempts', 0)}")
+        sev_str = "، ".join(f"{k}={v}" for k, v in sorted(by_sev.items()))
+        lines.append(f"• تنبيهات Dependabot المفتوحة: {dep.get('total_open', 0)}" + (f" ({sev_str})" if sev_str else ""))
+        lines.append(f"• محاولات الوصول غير المصرح بها: {overview.get('recent_unauthorized_attempts', 0)}")
     except ConfigurationError as exc:
-        lines.append(f"• Dependabot: Not configured ({_esc(exc, 60)})")
+        lines.append(f"• Dependabot: غير مهيأ ({_esc(exc, 60)})")
 
     try:
         uptime = await insights_service.get_uptime_and_incidents(hours=24)
-        lines.append(f"• Open incidents: {len(uptime.get('open_incidents') or [])}")
+        lines.append(f"• الحوادث المفتوحة: {len(uptime.get('open_incidents') or [])}")
     except Exception:  # noqa: BLE001
         pass
 
@@ -1189,12 +1195,12 @@ async def handle_backup(ctx: CommandContext) -> str:
     if ctx.args and ctx.args[0] == "list":
         backups = await backup_service.list_backups()
         if not backups:
-            return "No backups found yet."
+            return "لا توجد نسخ احتياطية حتى الآن."
         lines = [
             f"• {b['backup_id']} — {b['artifact_name']} ({b['created_at']})"
             for b in backups[:10]
         ]
-        return f"{title('Available Backups', 'backup')}\n" + "\n".join(lines)
+        return f"{title('النسخ الاحتياطية المتاحة', 'backup')}\n" + "\n".join(lines)
 
     confirmed = "confirm" in ctx.args
     return await backup_service.trigger_backup(confirmed=confirmed)
@@ -1205,10 +1211,10 @@ async def handle_restore(ctx: CommandContext) -> str:
     from bot.modules.backup import service as backup_service
 
     if not ctx.args:
-        return "Usage: /restore <backup_id> [confirm]\nSee /backup list for available backup IDs."
+        return "الاستخدام: /restore <backup_id> [confirm]\nاستخدم /backup list لعرض النسخ المتاحة."
     backup_id = ctx.args[0]
     if not backup_id.isdigit():
-        return f"Invalid backup_id '{backup_id}' — expected a numeric ID from /backup list."
+        return f"معرّف نسخة غير صالح '{backup_id}' — يجب أن يكون رقماً من /backup list."
     confirmed = "confirm" in ctx.args
     return await backup_service.trigger_restore(confirmed=confirmed, backup_id=backup_id)
 
@@ -1229,28 +1235,28 @@ async def handle_analytics(ctx: CommandContext) -> str:
     umami = summary.get("umami")
 
     lines = [
-        f"📈 <b>Analytics ({html.escape(period_label)})</b>",
-        f"Errors ({html.escape(period_label)}): {summary.get('error_count') if summary.get('error_count') is not None else 'N/A'}",
+        f"📈 <b>التحليلات ({html.escape(period_label)})</b>",
+        f"الأخطاء ({html.escape(period_label)}): {summary.get('error_count') if summary.get('error_count') is not None else 'غير متاح'}",
     ]
 
     if users or activity:
         lines.extend(
             [
                 "",
-                "<b>Platform Engagement</b>",
-                f"• New signups: {_fmt(users.get('signups_recent'))} | Active 24h: {_fmt(users.get('active_24h'))}",
-                f"• Quizzes created: {_fmt(activity.get('quizzes_recent'))} | Completions: {_fmt(activity.get('completions_recent'))}",
-                f"• Guest attempts: {_fmt(activity.get('guest_attempts_recent'))} | Avg score: {_fmt(activity.get('avg_score_pct'), '%')}",
-                f"• AI calls: {_fmt(ai.get('total_calls'))} ({_fmt(ai.get('success_rate_pct'), '%')} ok)",
+                "<b>تفاعل المنصة</b>",
+                f"• مسجلون جدد: {_fmt(users.get('signups_recent'))} | نشط 24س: {_fmt(users.get('active_24h'))}",
+                f"• اختبارات منشأة: {_fmt(activity.get('quizzes_recent'))} | الإكمالات: {_fmt(activity.get('completions_recent'))}",
+                f"• محاولات الضيوف: {_fmt(activity.get('guest_attempts_recent'))} | متوسط الدرجة: {_fmt(activity.get('avg_score_pct'), '%')}",
+                f"• طلبات الذكاء: {_fmt(ai.get('total_calls'))} ({_fmt(ai.get('success_rate_pct'), '%')} نجاح)",
             ]
         )
 
     if vitals:
         lines.append("")
-        lines.append("<b>Web Vitals (p75)</b>")
+        lines.append("<b>مؤشرات Web Vitals (p75)</b>")
         for metric, st in sorted(vitals.items()):
             unit = "" if metric == "CLS" else "ms"
-            lines.append(f"• {html.escape(metric)}: {st['p75']}{unit} (n={st['samples']})")
+            lines.append(f"• {html.escape(metric)}: {st['p75']}{unit} (عينة={st['samples']})")
 
     if isinstance(umami, dict) and umami:
         pv = umami.get("pageviews", {})
@@ -1260,8 +1266,8 @@ async def handle_analytics(ctx: CommandContext) -> str:
         lines.extend(
             [
                 "",
-                "<b>Umami Traffic</b>",
-                f"• Pageviews: {_fmt(pv_val)} | Visitors: {_fmt(vis_val)}",
+                "<b>زيارات Umami</b>",
+                f"• المشاهدات: {_fmt(pv_val)} | الزوار: {_fmt(vis_val)}",
             ]
         )
 
@@ -1279,8 +1285,8 @@ async def handle_reports(ctx: CommandContext) -> str:
     report = await reports_service.get_report(report_type, refresh=refresh)
     if report is None:
         return (
-            f"Unknown or empty report type '{_esc(report_type)}'.\n"
-            "Available: daily, weekly, monthly, performance (append 'refresh' to regenerate)."
+            f"نوع التقرير غير معروف أو فارغ '{_esc(report_type)}'.\n"
+            "المتاح: daily, weekly, monthly, performance (أضف 'refresh' لإعادة التوليد)."
         )
     return report["content"]
 
@@ -1290,10 +1296,10 @@ async def handle_ask(ctx: CommandContext) -> str:
     from bot.modules.ai_assistant import service as ai_assistant
 
     if not ctx.args:
-        return "Usage: /ask <question>\nExample: /ask What is the AI error rate and system status today?"
+        return "الاستخدام: /ask <سؤالك>\nمثال: /ask ما هي نسبة أخطاء الذكاء وحالة النظام اليوم؟"
     question = " ".join(ctx.args).strip()
     answer = await ai_assistant.answer_question(question)
-    return f"🤖 <b>AI Ops Assistant</b>\n\n{html.escape(answer)}"
+    return f"🤖 <b>مساعد العمليات الذكي</b>\n\n{html.escape(answer)}"
 
 
 # --- Access control (RBAC) ----------------------------------------------------------
@@ -1304,19 +1310,19 @@ async def handle_setrole(ctx: CommandContext) -> str:
     from bot.db.repositories.users_repo import set_role
 
     if len(ctx.args) < 2:
-        return "Usage: /setrole <telegram_user_id> <ADMIN|VIEWER>"
+        return "الاستخدام: /setrole <telegram_user_id> <ADMIN|VIEWER>"
 
     try:
         target_user_id = int(ctx.args[0])
     except ValueError:
-        return "telegram_user_id must be a number."
+        return "معرّف تليجرام يجب أن يكون رقماً."
 
     role_str = ctx.args[1].upper()
     if role_str not in ("ADMIN", "VIEWER"):
-        return "Role must be ADMIN or VIEWER. Owner can only be set via the OWNER_USER_IDS environment variable."
+        return "الدور يجب أن يكون ADMIN أو VIEWER. المالك يحدد عبر متغير البيئة OWNER_USER_IDS فقط."
 
     await set_role(target_user_id, role_str)
-    return f"✅ User {target_user_id} is now {role_str}."
+    return f"✅ المستخدم {target_user_id} أصبح الآن {role_str}."
 
 
 # --- Runtime settings ----------------------------------------------------------------
@@ -1336,18 +1342,18 @@ def _parse_setting_value(kind: str, raw: str):
             return True
         if raw.lower() in ("false", "0", "no", "off"):
             return False
-        raise ValueError("expected true/false")
+        raise ValueError("متوقع true أو false")
     if kind == "int":
         try:
             return int(raw)
         except ValueError:
-            raise ValueError("expected a whole number") from None
+            raise ValueError("متوقع رقم صحيح") from None
     if kind.startswith("enum:"):
         options = kind.split(":", 1)[1].split(",")
         if raw not in options:
-            raise ValueError(f"expected one of: {', '.join(options)}")
+            raise ValueError(f"متوقع إحدى القيم: {', '.join(options)}")
         return raw
-    raise ValueError("unsupported setting type")  # pragma: no cover
+    raise ValueError("نوع إعداد غير مدعوم")  # pragma: no cover
 
 
 @command("settings")
@@ -1359,23 +1365,23 @@ async def handle_settings(ctx: CommandContext) -> str:
     if not ctx.args:
         settings_map = await get_all_settings()
         if not settings_map:
-            return f"No runtime settings configured yet.\nUsage: /settings <key> <value>\nKnown keys: {known_keys_hint}"
-        return "⚙️ <b>Settings</b>\n" + "\n".join(f"{k}: {v}" for k, v in settings_map.items())
+            return f"لا توجد إعدادات وقت تشغيل مهيأة بعد.\nالاستخدام: /settings <key> <value>\nالمفاتيح المتاحة: {known_keys_hint}"
+        return "⚙️ <b>إعدادات البوت</b>\n" + "\n".join(f"{k}: {v}" for k, v in settings_map.items())
 
     if len(ctx.args) < 2:
-        return f"Usage: /settings <key> <value>\nKnown keys: {known_keys_hint}"
+        return f"الاستخدام: /settings <key> <value>\nالمفاتيح المتاحة: {known_keys_hint}"
 
     key, raw_value = ctx.args[0], " ".join(ctx.args[1:])
     if key not in _KNOWN_SETTINGS:
-        return f"Unknown setting '{_esc(key)}'.\nKnown keys: {known_keys_hint}"
+        return f"إعداد غير معروف '{_esc(key)}'.\nالمفاتيح المتاحة: {known_keys_hint}"
 
     try:
         value = _parse_setting_value(_KNOWN_SETTINGS[key], raw_value)
     except ValueError as e:
-        return f"Invalid value for '{_esc(key)}': {e}"
+        return f"قيمة غير صالحة لـ '{_esc(key)}': {e}"
 
     await set_setting(key, value)
-    return f"⚙️ {key} set to {value}."
+    return f"⚙️ تم ضبط {key} إلى {value}."
 
 
 # ---------------------------------------------------------------------------
@@ -1386,21 +1392,20 @@ async def handle_settings(ctx: CommandContext) -> str:
 async def handle_platform(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
-    # Read current state
     if not ctx.args:
         cfg = await admin_actions.get_platform_settings()
         if not cfg:
-            return "⚙️ <b>Platform Settings</b>\n• Unable to read platform_settings."
-        mm = "🔴 ON" if cfg.get("maintenance_mode") else "🟢 OFF"
-        reg = "✅ ENABLED" if cfg.get("allow_registrations") else "❌ DISABLED"
+            return "⚙️ <b>إعدادات المنصة</b>\n• تعذر قراءة إعدادات platform_settings."
+        mm = "🔴 مفعّل" if cfg.get("maintenance_mode") else "🟢 متوقف"
+        reg = "✅ مفتوح" if cfg.get("allow_registrations") else "❌ مغلق"
         updated = _age(cfg.get("updated_at"))
         return (
-            "⚙️ <b>Platform Settings</b>\n"
-            f"• Maintenance mode: <b>{mm}</b>\n"
-            f"• Registrations: <b>{reg}</b>\n"
-            f"• Last updated: {updated}\n\n"
-            "Toggle: <code>/platform maintenance on|off</code>\n"
-            "Toggle: <code>/platform registration on|off</code>"
+            "⚙️ <b>إعدادات المنصة</b>\n"
+            f"• وضع الصيانة: <b>{mm}</b>\n"
+            f"• فتح التسجيل: <b>{reg}</b>\n"
+            f"• آخر تحديث: {updated}\n\n"
+            "تبديل الصيانة: <code>/platform maintenance on|off</code>\n"
+            "تبديل التسجيل: <code>/platform registration on|off</code>"
         )
 
     confirmed = "confirm" in ctx.args
@@ -1411,9 +1416,8 @@ async def handle_platform(ctx: CommandContext) -> str:
         reg = args[2] == "1"
     else:
         if len(args) < 2 or args[1].lower() not in ("on", "off"):
-            return "Usage: /platform &lt;maintenance|registration&gt; &lt;on|off&gt;"
+            return "الاستخدام: /platform &lt;maintenance|registration&gt; &lt;on|off&gt;"
 
-        # Read current to preserve the other field
         cfg = await admin_actions.get_platform_settings()
         mm = bool(cfg.get("maintenance_mode", False))
         reg = bool(cfg.get("allow_registrations", True))
@@ -1425,15 +1429,15 @@ async def handle_platform(ctx: CommandContext) -> str:
         elif field == "registration":
             reg = value
         else:
-            return "Unknown field. Use 'maintenance' or 'registration'."
+            return "حقل غير معروف. استخدم 'maintenance' أو 'registration'."
 
     result = await admin_actions.toggle_platform_settings(
         maintenance_mode=mm, allow_registrations=reg, confirmed=confirmed
     )
     return (
-        "⚙️ <b>Platform Settings Updated</b>\n"
-        f"• Maintenance mode: {'🔴 ON' if result['maintenance_mode'] else '🟢 OFF'}\n"
-        f"• Registrations: {'✅ ENABLED' if result['allow_registrations'] else '❌ DISABLED'}"
+        "⚙️ <b>تم تحديث إعدادات المنصة</b>\n"
+        f"• وضع الصيانة: {'🔴 مفعّل' if result['maintenance_mode'] else '🟢 متوقف'}\n"
+        f"• التسجيل: {'✅ مفتوح' if result['allow_registrations'] else '❌ مغلق'}"
     )
 
 
@@ -1448,34 +1452,34 @@ async def handle_trial(ctx: CommandContext) -> str:
     if not ctx.args or (len(ctx.args) == 1 and ctx.args[0].isdigit() is False):
         offers = await admin_actions.get_trial_offers()
         if not offers:
-            return "🎁 <b>Trial Offers</b>\n• No trial offers found."
-        lines = ["🎁 <b>Trial Offers</b>", ""]
+            return "🎁 <b>عروض التجربة المجانية</b>\n• لا توجد عروض مسجلة."
+        lines = ["🎁 <b>عروض التجربة المجانية</b>", ""]
         for offer in offers:
-            state = "✅ Active" if offer.get("is_active") else "❌ Inactive"
+            state = "✅ نشط" if offer.get("is_active") else "❌ غير نشط"
             updated = _age(offer.get("updated_at"))
-            lines.append(f"• <b>{offer.get('duration_days')}d</b>: {state} (updated {updated})")
-        lines.append("\nToggle: <code>/trial &lt;7|14|30&gt; &lt;on|off&gt;</code>")
+            lines.append(f"• <b>{offer.get('duration_days')} يوم</b>: {state} (آخر تحديث {updated})")
+        lines.append("\nللتعديل: <code>/trial &lt;7|14|30&gt; &lt;on|off&gt;</code>")
         return "\n".join(lines)
 
     if len(ctx.args) < 2 or ctx.args[1].lower() not in ("on", "off"):
-        return "Usage: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
+        return "الاستخدام: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
 
     confirmed = "confirm" in ctx.args
     args = [a for a in ctx.args if a != "confirm"]
 
     if not args[0].isdigit():
-        return "Usage: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
+        return "الاستخدام: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
     duration = int(args[0])
     is_active = args[1].lower() == "on"
 
     result = await admin_actions.toggle_trial_offer(
         duration_days=duration, is_active=is_active, confirmed=confirmed
     )
-    state = "✅ Activated" if result["is_active"] else "❌ Deactivated"
+    state = "✅ تم التفعيل" if result["is_active"] else "❌ تم الإيقاف"
     return (
-        f"🎁 <b>Trial Offer Updated</b>\n"
-        f"• Duration: <b>{result['duration_days']} days</b>\n"
-        f"• Status: {state}"
+        f"🎁 <b>تم تحديث عرض التجربة المجانية</b>\n"
+        f"• المدة: <b>{result['duration_days']} يوم</b>\n"
+        f"• الحالة: {state}"
     )
 
 
@@ -1491,43 +1495,41 @@ async def handle_coupon(ctx: CommandContext) -> str:
     args = [a for a in ctx.args if a != "confirm"]
 
     if not args:
-        # List coupons
         coupons = await admin_actions.list_coupons(limit=20)
         if not coupons:
-            return "🎟️ <b>Coupon Codes</b>\n• No coupons found."
-        lines = ["🎟️ <b>Coupon Codes</b>", ""]
+            return "🎟️ <b>كوبونات الخصم</b>\n• لا توجد كوبونات."
+        lines = ["🎟️ <b>كوبونات الخصم</b>", ""]
         for c in coupons:
             active_icon = "✅" if c.get("is_active") else "❌"
             used = c.get("used_count", 0)
             max_u = c.get("max_uses", 0)
             uses_txt = f"{used}/{max_u}" if max_u else f"{used}/∞"
             exp = c.get("expiry_date")
-            exp_txt = f" | exp {_age(exp)}" if exp else ""
-            plans = c.get("applicable_plans") or "all"
+            exp_txt = f" | ينتهي {_age(exp)}" if exp else ""
+            plans = c.get("applicable_plans") or "الكل"
             lines.append(
                 f"{active_icon} <code>{_esc(c.get('code'))}</code> — "
-                f"{c.get('discount_percent', 0)}% off | uses: {uses_txt}{exp_txt}\n"
-                f"  ID: <code>{_esc(c.get('id'))}</code> | plans: {_esc(plans, 50)}"
+                f"خصم {c.get('discount_percent', 0)}% | الاستخدام: {uses_txt}{exp_txt}\n"
+                f"  ID: <code>{_esc(c.get('id'))}</code> | الباقات: {_esc(plans, 50)}"
             )
         lines.append(
-            "\nCreate: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
-            "Toggle: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
-            "Delete: <code>/coupon delete &lt;id&gt;</code>"
+            "\nإنشاء: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
+            "تبديل: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
+            "حذف: <code>/coupon delete &lt;id&gt;</code>"
         )
         return "\n".join(lines)
 
     sub = args[0].lower()
 
     if sub == "create":
-        # /coupon create <id> <CODE> <discount%> [max_uses] [expiry_iso] [plans]
         if len(args) < 4:
-            return "Usage: /coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]"
+            return "الاستخدام: /coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]"
         coupon_id = args[1]
         code = args[2]
         try:
             disc = int(args[3])
         except ValueError:
-            return "discount_percent must be an integer 0-100."
+            return "نسبة الخصم يجب أن تكون رقماً صحيحاً بين 0 و 100."
         max_uses = int(args[4]) if len(args) > 4 and args[4].isdigit() else 0
         expiry_arg = args[5] if len(args) > 5 else None
         expiry = expiry_arg if (expiry_arg and expiry_arg != "-" and "T" in expiry_arg) else None
@@ -1539,27 +1541,27 @@ async def handle_coupon(ctx: CommandContext) -> str:
             confirmed=confirmed,
         )
         return (
-            "🎟️ <b>Coupon Created/Updated</b>\n"
-            f"• Code: <code>{_esc(result.get('code'))}</code>\n"
-            f"• Discount: {result.get('discount_percent', 0)}% | Max uses: {result.get('max_uses', 0) or '∞'}\n"
-            f"• Plans: {_esc(result.get('applicable_plans', 'all'), 60)}"
+            "🎟️ <b>تم إنشاء/تحديث الكوبون</b>\n"
+            f"• الكود: <code>{_esc(result.get('code'))}</code>\n"
+            f"• الخصم: {result.get('discount_percent', 0)}% | الحد الأقصى: {result.get('max_uses', 0) or '∞'}\n"
+            f"• الباقات: {_esc(result.get('applicable_plans', 'الكل'), 60)}"
         )
 
     if sub == "toggle":
         if len(args) < 3 or args[2].lower() not in ("on", "off"):
-            return "Usage: /coupon toggle &lt;id&gt; on|off"
+            return "الاستخدام: /coupon toggle &lt;id&gt; on|off"
         is_active = args[2].lower() == "on"
         result = await admin_actions.toggle_coupon(args[1], is_active=is_active, confirmed=confirmed)
-        state = "✅ Activated" if result.get("is_active") else "❌ Deactivated"
-        return f"🎟️ <b>Coupon {state}</b>\n• ID: <code>{_esc(args[1])}</code>"
+        state = "✅ تم التفعيل" if result.get("is_active") else "❌ تم الإيقاف"
+        return f"🎟️ <b>حالة الكوبون: {state}</b>\n• ID: <code>{_esc(args[1])}</code>"
 
     if sub == "delete":
         if len(args) < 2:
-            return "Usage: /coupon delete &lt;id&gt;"
+            return "الاستخدام: /coupon delete &lt;id&gt;"
         await admin_actions.delete_coupon(args[1], confirmed=confirmed)
-        return f"🗑️ <b>Coupon Deleted</b>\n• ID: <code>{_esc(args[1])}</code>"
+        return f"🗑️ <b>تم حذف الكوبون</b>\n• ID: <code>{_esc(args[1])}</code>"
 
-    return "Unknown subcommand. Use: list (no args), create, toggle, delete."
+    return "أمر فرعي غير معروف. استخدم: بدون معاملات للعرض، أو create, toggle, delete."
 
 
 # ---------------------------------------------------------------------------
@@ -1572,14 +1574,14 @@ async def handle_vitals(ctx: CommandContext) -> str:
 
     summary = await platform_repo.get_web_vitals_summary()
     if not summary:
-        return "📊 <b>Web Vitals</b>\n• No vitals data available."
+        return "📊 <b>مؤشرات الأداء Web Vitals</b>\n• لا توجد بيانات متاحة حالياً."
 
     _THRESHOLDS = {
-        "CLS": [(0.1, "🟢 Good"), (0.25, "🟡 Needs Improvement"), (999, "🔴 Poor")],
-        "LCP": [(2500, "🟢 Good"), (4000, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
-        "FCP": [(1800, "🟢 Good"), (3000, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
-        "INP": [(200, "🟢 Good"), (500, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
-        "TTFB": [(800, "🟢 Good"), (1800, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
+        "CLS": [(0.1, "🟢 ممتاز"), (0.25, "🟡 يحتاج تحسين"), (999, "🔴 بطيء")],
+        "LCP": [(2500, "🟢 ممتاز"), (4000, "🟡 يحتاج تحسين"), (99999, "🔴 بطيء")],
+        "FCP": [(1800, "🟢 ممتاز"), (3000, "🟡 يحتاج تحسين"), (99999, "🔴 بطيء")],
+        "INP": [(200, "🟢 ممتاز"), (500, "🟡 يحتاج تحسين"), (99999, "🔴 بطيء")],
+        "TTFB": [(800, "🟢 ممتاز"), (1800, "🟡 يحتاج تحسين"), (99999, "🔴 بطيء")],
     }
 
     def _rating(metric: str, value: float) -> str:
@@ -1588,7 +1590,7 @@ async def handle_vitals(ctx: CommandContext) -> str:
                 return label
         return "⚪"
 
-    lines = ["📊 <b>Web Vitals Report</b>", ""]
+    lines = ["📊 <b>تقرير مؤشرات الأداء Web Vitals</b>", ""]
     for metric, stats in sorted(summary.items()):
         p75 = stats.get("p75")
         avg = stats.get("avg")
@@ -1596,12 +1598,12 @@ async def handle_vitals(ctx: CommandContext) -> str:
         rating = _rating(metric, p75) if p75 is not None else "⚪"
         unit = "" if metric == "CLS" else "ms"
         lines.append(
-            f"• <b>{metric}</b>: p75={_fmt(p75, unit)} avg={_fmt(avg, unit)} "
-            f"({samples} samples) {rating}"
+            f"• <b>{metric}</b>: p75={_fmt(p75, unit)} متوسط={_fmt(avg, unit)} "
+            f"({samples} عينة) {rating}"
         )
 
     lines.append(
-        "\n<i>Good: CLS≤0.1 LCP≤2500ms FCP≤1800ms INP≤200ms TTFB≤800ms</i>"
+        "\n<i>الحدود الجيدة: CLS≤0.1 LCP≤2500ms FCP≤1800ms INP≤200ms TTFB≤800ms</i>"
     )
     return "\n".join(lines)
 
@@ -1619,27 +1621,161 @@ async def handle_topusers(ctx: CommandContext) -> str:
 
     if mode in ("points", "pts", "rewards"):
         rows = await platform_repo.get_top_users_by_points(limit=limit)
-        lines = ["🏆 <b>Top Users — Reward Points</b>", ""]
+        lines = ["🏆 <b>أعلى المستخدمين — نقاط المكافآت</b>", ""]
         if not rows:
-            return lines[0] + "\n• No data available."
+            return lines[0] + "\n• لا توجد بيانات متاحة."
         for idx, row in enumerate(rows, 1):
             name = _esc(row.get("display_name", str(row.get("user_id", ""))[:8]), 30)
             pts = int(row.get("points") or 0)
             lvl = row.get("level", 1)
-            lines.append(f"{idx}. {name} — <b>{pts:,}</b> pts | Level {lvl}")
-        lines.append("\nFilter: <code>/topusers xp</code> | <code>/topusers points</code>")
+            lines.append(f"{idx}. {name} — <b>{pts:,}</b> نقطة | المستوى {lvl}")
+        lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
         return "\n".join(lines)
 
-    # Default: XP
     rows = await platform_repo.get_top_users_by_xp(limit=limit)
-    lines = ["🏆 <b>Top Users — XP Leaderboard</b>", ""]
+    lines = ["🏆 <b>أعلى المستخدمين — نقاط الخبرة XP</b>", ""]
     if not rows:
-        return lines[0] + "\n• No data available."
+        return lines[0] + "\n• لا توجد بيانات متاحة."
     for idx, row in enumerate(rows, 1):
         name = _esc(row.get("name") or row.get("custom_id") or str(row.get("uid", ""))[:8], 30)
         xp = int(row.get("xp") or 0)
         lvl = row.get("level", 1)
         tier = "⭐" if row.get("is_premium") else "·"
-        lines.append(f"{idx}. {tier} {name} — <b>{xp:,}</b> XP | Level {lvl}")
-    lines.append("\nFilter: <code>/topusers xp</code> | <code>/topusers points</code>")
+        lines.append(f"{idx}. {tier} {name} — <b>{xp:,}</b> XP | المستوى {lvl}")
+    lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# /edituser, /plans, /editplan, /notify, /quizzes, /deletequiz
+# ---------------------------------------------------------------------------
+
+@command("edituser")
+async def handle_edituser(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+    if len(args) < 3:
+        return (
+            "الاستخدام: /edituser &lt;uid_or_email&gt; &lt;field&gt; &lt;value&gt;\n"
+            "الحقول المتاحة: <code>name, custom_id, name_color, badge_color, is_admin, xp, level</code>"
+        )
+    identifier = args[0]
+    field = args[1]
+    raw_value = " ".join(args[2:])
+    result = await admin_actions.edit_user_field(identifier, field, raw_value, confirmed=confirmed)
+    return (
+        "✏️ <b>تم تعديل بيانات المستخدم</b>\n"
+        f"• المستخدم: {_esc(result.get('name') or result['uid'])} (<code>{_esc(result['uid'])}</code>)\n"
+        f"• الحقل: <code>{_esc(result['field'])}</code> ← <b>{_esc(result['value'])}</b>"
+    )
+
+
+@command("plans")
+async def handle_plans(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
+
+    plans = await platform_repo.list_subscription_plans()
+    if not plans:
+        return "💎 <b>باقات الاشتراك</b>\n• لا توجد باقات مسجلة."
+    lines = ["💎 <b>باقات الاشتراك في الموقع</b>", ""]
+    for p in plans:
+        active_icon = "✅" if p.get("is_active") else "❌"
+        dur = "مدى الحياة" if p.get("is_lifetime") else f"{p.get('duration_months', 1)} شهر"
+        ar_name = f" ({_esc(p.get('name_ar'))})" if p.get("name_ar") else ""
+        lines.append(
+            f"{active_icon} <code>{_esc(p.get('id'))}</code> — <b>{_esc(p.get('name'))}</b>{ar_name}\n"
+            f"  السعر: <b>{p.get('price', 0)} {p.get('currency', 'EGP')}</b> | المدة: {dur} | الشارة: {_esc(p.get('badge_style'))}"
+        )
+    lines.append("\nلتعديل باقة: <code>/editplan &lt;plan_id&gt; &lt;price|name|name_ar|duration_months|is_active&gt; &lt;value&gt;</code>")
+    return "\n".join(lines)
+
+
+@command("editplan")
+async def handle_editplan(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+    if len(args) < 3:
+        return (
+            "الاستخدام: /editplan &lt;plan_id&gt; &lt;field&gt; &lt;value&gt;\n"
+            "الحقول المتاحة: <code>price, name, name_ar, duration_months, is_active, is_lifetime, badge_style, badge_color, priority_level</code>"
+        )
+    plan_id = args[0]
+    field = args[1]
+    raw_value = " ".join(args[2:])
+    result = await admin_actions.edit_subscription_plan(plan_id, field, raw_value, confirmed=confirmed)
+    return (
+        "💎 <b>تم تحديث باقة الاشتراك</b>\n"
+        f"• الباقة: <code>{_esc(result['plan_id'])}</code>\n"
+        f"• الحقل: <code>{_esc(result['field'])}</code> ← <b>{_esc(result['value'])}</b>"
+    )
+
+
+@command("notify")
+async def handle_notify(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+    if len(args) < 2:
+        return (
+            "الاستخدام: /notify &lt;uid_or_email_or_all&gt; &lt;العنوان&gt; | &lt;نص الإشعار&gt;\n"
+            "مثال: /notify all صيانة سريعة | سيتم تحديث السيرفر خلال 10 دقائق"
+        )
+    target = args[0]
+    rest = " ".join(args[1:]).strip()
+    if "|" in rest:
+        notif_title, notif_body = (part.strip() for part in rest.split("|", 1))
+    else:
+        notif_title = "إشعار من الإدارة"
+        notif_body = rest
+
+    result = await admin_actions.send_platform_notification(
+        target, notif_title, notif_body, confirmed=confirmed
+    )
+    return (
+        "📢 <b>تم إرسال الإشعار داخل الموقع</b>\n"
+        f"• المستهدف: {_esc(result['target_label'])}\n"
+        f"• العنوان: <b>{_esc(result['title'])}</b>\n"
+        f"• النص: {_esc(result['body'], 200)}"
+    )
+
+
+@command("quizzes")
+async def handle_quizzes(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
+
+    limit = 15
+    if ctx.args and ctx.args[0].isdigit():
+        limit = max(1, min(30, int(ctx.args[0])))
+    quizzes = await platform_repo.list_recent_quizzes(limit=limit)
+    if not quizzes:
+        return "📝 <b>أحدث الاختبارات</b>\n• لا توجد اختبارات مسجلة."
+    lines = [f"📝 <b>أحدث الاختبارات ({len(quizzes)})</b>", ""]
+    for q in quizzes:
+        vis = "🌐 عام" if q.get("is_public") else "🔒 خاص"
+        lines.append(
+            f"• <code>{_esc(str(q.get('id', ''))[:8])}</code> — <b>{_esc(q.get('title'), 45)}</b>\n"
+            f"  {vis} | {q.get('total_plays', 0)} تشغيل | {_age(q.get('created_at'))}"
+        )
+    lines.append("\nلحذف اختبار: <code>/deletequiz &lt;quiz_id&gt;</code>")
+    return "\n".join(lines)
+
+
+@command("deletequiz")
+async def handle_deletequiz(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+    if not args:
+        return "الاستخدام: /deletequiz &lt;quiz_id&gt;"
+    result = await admin_actions.delete_quiz(args[0], confirmed=confirmed)
+    return (
+        "🗑️ <b>تم حذف الاختبار</b>\n"
+        f"• المعرّف: <code>{_esc(result['id'])}</code>\n"
+        f"• العنوان: {_esc(result.get('title'))}"
+    )

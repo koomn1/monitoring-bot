@@ -146,7 +146,7 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     action, _, rest = query.data.partition("|")
 
     if action == "cancel":
-        await query.edit_message_text("🚫 Cancelled — no changes were made.")
+        await query.edit_message_text("🚫 تم الإلغاء — لم يتم إجراء أي تعديل.")
         return
 
     if action == "cmd":
@@ -158,7 +158,7 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     elif action == "confirm_tok":
         resolved = resolve_confirmation_token(rest)
         if resolved is None:
-            await query.edit_message_text("⚠️ Confirmation expired — please re-run the command.")
+            await query.edit_message_text("⚠️ انتهت صلاحية التأكيد — من فضلك أعد إرسال الأمر.")
             return
         command_name, stored_args = resolved
         args = list(stored_args) + ["confirm"]
@@ -211,24 +211,32 @@ async def _post_init(application: Application) -> None:
     logger.info("Webhook/health receiver listening on port %s", port)
 
     menu_commands = [
-        BotCommand("start", "Open main operations menu"),
-        BotCommand("status", "Service health, realtime & incidents"),
-        BotCommand("dashboard", "Full executive platform snapshot"),
-        BotCommand("pulse", "Live users, quizzes & activity"),
-        BotCommand("errors", "Full diagnostics across Sentry, AI & jobs"),
-        BotCommand("ai", "AI pipeline & extraction queue"),
-        BotCommand("payments", "Review pending subscriptions"),
-        BotCommand("orders", "Review reward store orders"),
-        BotCommand("points", "Points leaderboard & user balances"),
-        BotCommand("users", "User stats & newest signups"),
-        BotCommand("user", "Full user profile, plan & points"),
-        BotCommand("membership", "Edit user subscription (Owner)"),
-        BotCommand("grantpoints", "Add/deduct user points (Owner)"),
-        BotCommand("incidents", "Open/resolved incidents & uptime"),
-        BotCommand("analytics", "Platform analytics & Web Vitals"),
-        BotCommand("reports", "Daily/weekly/monthly/performance reports"),
-        BotCommand("ask", "Ask AI assistant about live metrics"),
-        BotCommand("help", "All commands & usage"),
+        BotCommand("start", "فتح القائمة الرئيسية للعمليات"),
+        BotCommand("status", "حالة الخدمات والاتصال والحوادث"),
+        BotCommand("dashboard", "ملخص تنفيذي كامل للمنصة"),
+        BotCommand("pulse", "النبض الحي للمستخدمين والاختبارات"),
+        BotCommand("errors", "تشخيص شامل لأخطاء الذكاء والموقع"),
+        BotCommand("ai", "أداء الذكاء الاصطناعي ومهام الاستخراج"),
+        BotCommand("payments", "مراجعة طلبات الدفع والاشتراك"),
+        BotCommand("orders", "مراجعة طلبات متجر النقاط"),
+        BotCommand("points", "النقاط والمتصدرين ورصيد المستخدم"),
+        BotCommand("users", "إحصائيات المستخدمين وأحدث المسجلين"),
+        BotCommand("user", "ملف مستخدم كامل وتفاصيله"),
+        BotCommand("edituser", "تعديل بيانات مستخدم (المالك)"),
+        BotCommand("membership", "تعديل باقة واشتراك مستخدم (المالك)"),
+        BotCommand("grantpoints", "إضافة أو خصم نقاط مستخدم (المالك)"),
+        BotCommand("plans", "عرض باقات الاشتراك"),
+        BotCommand("editplan", "تعديل باقة اشتراك (المالك)"),
+        BotCommand("platform", "وضع الصيانة والتسجيل (المالك)"),
+        BotCommand("trial", "إدارة عروض التجربة المجانية (المالك)"),
+        BotCommand("coupon", "إدارة كوبونات الخصم (المالك)"),
+        BotCommand("notify", "إرسال إشعار داخل الموقع (المالك)"),
+        BotCommand("quizzes", "عرض أحدث الاختبارات"),
+        BotCommand("incidents", "الحوادث المفتوحة ونسب التشغيل"),
+        BotCommand("analytics", "التحليلات ومؤشرات الأداء"),
+        BotCommand("reports", "التقارير اليومية والأسبوعية والشهرية"),
+        BotCommand("ask", "اسأل المساعد الذكي عن حالة المنصة"),
+        BotCommand("help", "عرض جميع الأوامر وطريقة الاستخدام"),
     ]
     try:
         await application.bot.set_my_commands(menu_commands)

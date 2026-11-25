@@ -161,11 +161,13 @@ async def _process_supabase_event(payload: dict[str, Any]) -> None:
             order_type = record.get("order_type") or "points"
             amount_pts = record.get("amount_points") or 0
             amount_egp = record.get("amount_egp") or 0
+            pay_method = record.get("payment_method") or "غير محدد"
             await notifications_service.notify_operational_alert(
-                f"🎁 New reward store order #{str(identifier or '')[:8]}\n"
-                f"Type: {order_type} | {amount_pts} pts / {amount_egp} EGP\n"
-                f"User: {record.get('user_id', 'unknown')[:16]}\n"
-                f"Use /orders to review."
+                f"🎁 طلب جديد من متجر المكافآت #{str(identifier or '')[:8]}",
+                f"النوع: {order_type} | {amount_pts} نقطة / {amount_egp} ج.م\n"
+                f"طريقة الدفع: {pay_method}\n"
+                f"المستخدم: {str(record.get('user_id', 'غير معروف'))[:16]}\n"
+                f"للمراجعة: /orders أو /approveorder {str(identifier or '')[:8]}",
             )
         return
 

@@ -58,58 +58,58 @@ async def _generate_period_report(*, report_type: str, period: str, title: str) 
 
     lines = [f"📊 <b>{html.escape(title)} — Quiz Space ({html.escape(period)})</b>", ""]
 
-    lines.append("<b>Users &amp; Subscriptions</b>")
+    lines.append("<b>المستخدمون والاشتراكات</b>")
     lines.append(
-        f"• Total: {_fmt(users.get('total'))} | Premium: {_fmt(users.get('premium'))} | "
-        f"New ({period}): {_fmt(users.get('signups_recent'))}"
+        f"• الإجمالي: {_fmt(users.get('total'))} | بريميوم: {_fmt(users.get('premium'))} | "
+        f"جدد ({period}): {_fmt(users.get('signups_recent'))}"
     )
     lines.append(
-        f"• Active sessions (24h): {_fmt(users.get('active_24h'))} | "
-        f"Pending payments: {_fmt(payments.get('pending_count'))}"
-    )
-
-    lines.append("")
-    lines.append("<b>Quiz Activity</b>")
-    lines.append(
-        f"• Quizzes: {_fmt(activity.get('total_quizzes'))} (+{_fmt(activity.get('quizzes_recent'))} new) | "
-        f"Classrooms: {_fmt(activity.get('total_classrooms'))}"
-    )
-    lines.append(
-        f"• Completions ({period}): {_fmt(activity.get('completions_recent'))} | "
-        f"Guest attempts: {_fmt(activity.get('guest_attempts_recent'))} | "
-        f"Avg score: {_fmt(activity.get('avg_score_pct'), '%')}"
+        f"• الجلسات النشطة (24س): {_fmt(users.get('active_24h'))} | "
+        f"مدفوعات معلّقة: {_fmt(payments.get('pending_count'))}"
     )
 
     lines.append("")
-    lines.append("<b>AI &amp; Extraction</b>")
+    lines.append("<b>نشاط الاختبارات</b>")
     lines.append(
-        f"• AI calls ({period}): {_fmt(ai.get('total_calls'))} | "
-        f"Success: {_fmt(ai.get('success_rate_pct'), '%')} | "
-        f"Avg/P95: {_fmt(ai.get('avg_latency_ms'), 'ms')} / {_fmt(ai.get('p95_latency_ms'), 'ms')}"
+        f"• الاختبارات: {_fmt(activity.get('total_quizzes'))} (+{_fmt(activity.get('quizzes_recent'))} جديد) | "
+        f"الفصول: {_fmt(activity.get('total_classrooms'))}"
     )
     lines.append(
-        f"• Extraction jobs: complete={_fmt(extraction.get('complete_recent'))}, "
-        f"errors={_fmt(extraction.get('error_recent'))}, "
-        f"active={(_fmt((extraction.get('pending_count') or 0) + (extraction.get('processing_count') or 0)))}, "
-        f"stuck={len(extraction.get('stuck_jobs') or [])}"
+        f"• الإكمالات ({period}): {_fmt(activity.get('completions_recent'))} | "
+        f"محاولات الضيوف: {_fmt(activity.get('guest_attempts_recent'))} | "
+        f"متوسط الدرجات: {_fmt(activity.get('avg_score_pct'), '%')}"
+    )
+
+    lines.append("")
+    lines.append("<b>الذكاء الاصطناعي والاستخراج</b>")
+    lines.append(
+        f"• طلبات الذكاء ({period}): {_fmt(ai.get('total_calls'))} | "
+        f"النجاح: {_fmt(ai.get('success_rate_pct'), '%')} | "
+        f"المتوسط/P95: {_fmt(ai.get('avg_latency_ms'), 'ms')} / {_fmt(ai.get('p95_latency_ms'), 'ms')}"
+    )
+    lines.append(
+        f"• مهام الاستخراج: مكتملة={_fmt(extraction.get('complete_recent'))}, "
+        f"أخطاء={_fmt(extraction.get('error_recent'))}, "
+        f"نشطة={(_fmt((extraction.get('pending_count') or 0) + (extraction.get('processing_count') or 0)))}, "
+        f"عالقة={len(extraction.get('stuck_jobs') or [])}"
     )
 
     if services:
         lines.append("")
-        lines.append("<b>Service Uptime</b>")
+        lines.append("<b>توفر الخدمات</b>")
         for svc_name, stats in sorted(services.items()):
             lines.append(
                 f"• {html.escape(svc_name)}: {_fmt(stats.get('uptime_pct'), '%')} "
-                f"({stats.get('checks', 0)} checks, avg {_fmt(stats.get('avg_latency_ms'), 'ms')})"
+                f"({stats.get('checks', 0)} فحص، متوسط {_fmt(stats.get('avg_latency_ms'), 'ms')})"
             )
 
     lines.append("")
-    lines.append("<b>Errors &amp; Security</b>")
-    lines.append(f"• Open incidents: {len(open_incidents)}")
-    lines.append(f"• Errors ({period}): {_fmt(analytics.get('error_count'))}")
+    lines.append("<b>الأخطاء والأمان</b>")
+    lines.append(f"• الحوادث المفتوحة: {len(open_incidents)}")
+    lines.append(f"• الأخطاء ({period}): {_fmt(analytics.get('error_count'))}")
     lines.append(
-        f"• Open security alerts: {_fmt((security.get('dependabot') or {}).get('total_open'))} | "
-        f"Unauthorized attempts: {security.get('recent_unauthorized_attempts', 0)}"
+        f"• تنبيهات الأمان المفتوحة: {_fmt((security.get('dependabot') or {}).get('total_open'))} | "
+        f"محاولات غير مصرح بها: {security.get('recent_unauthorized_attempts', 0)}"
     )
 
     content = "\n".join(lines)
@@ -128,31 +128,31 @@ async def generate_performance_report() -> str:
 
     ai = ai_ext.get("ai") or {}
     services = uptime.get("services") or {}
-    lines = ["⚡ <b>Performance Report — Quiz Space (24h)</b>", ""]
+    lines = ["⚡ <b>تقرير الأداء — Quiz Space (24س)</b>", ""]
 
     if services:
-        lines.append("<b>Backend &amp; Endpoint Latency</b>")
+        lines.append("<b>سرعة الاستجابة للخادم والخدمات</b>")
         for svc_name, stats in sorted(services.items()):
             lines.append(
-                f"• {html.escape(svc_name)}: avg {_fmt(stats.get('avg_latency_ms'), 'ms')} | "
-                f"uptime {_fmt(stats.get('uptime_pct'), '%')}"
+                f"• {html.escape(svc_name)}: متوسط {_fmt(stats.get('avg_latency_ms'), 'ms')} | "
+                f"التوفر {_fmt(stats.get('uptime_pct'), '%')}"
             )
         lines.append("")
 
-    lines.append("<b>AI Pipeline Latency</b>")
+    lines.append("<b>أداء خط الذكاء الاصطناعي</b>")
     lines.append(
-        f"• Calls: {_fmt(ai.get('total_calls'))} | Success: {_fmt(ai.get('success_rate_pct'), '%')} | "
-        f"Avg: {_fmt(ai.get('avg_latency_ms'), 'ms')} | P95: {_fmt(ai.get('p95_latency_ms'), 'ms')}"
+        f"• الطلبات: {_fmt(ai.get('total_calls'))} | النجاح: {_fmt(ai.get('success_rate_pct'), '%')} | "
+        f"المتوسط: {_fmt(ai.get('avg_latency_ms'), 'ms')} | P95: {_fmt(ai.get('p95_latency_ms'), 'ms')}"
     )
 
     if vitals:
         lines.append("")
-        lines.append("<b>Frontend Web Vitals (p75)</b>")
+        lines.append("<b>مؤشرات الواجهة الأمامية Web Vitals (p75)</b>")
         for metric, stats in sorted(vitals.items()):
             unit = "" if metric == "CLS" else "ms"
-            lines.append(f"• {html.escape(metric)}: p75={stats['p75']}{unit} (avg={stats['avg']}{unit}, n={stats['samples']})")
+            lines.append(f"• {html.escape(metric)}: p75={stats['p75']}{unit} (متوسط={stats['avg']}{unit}, عينة={stats['samples']})")
     else:
-        lines.append("\n• Web Vitals: No samples in last 24h.")
+        lines.append("\n• مؤشرات الأداء: لا توجد عينات خلال آخر 24 ساعة.")
 
     content = "\n".join(lines)
     await save_report(
@@ -164,15 +164,15 @@ async def generate_performance_report() -> str:
 
 
 async def generate_daily_report() -> str:
-    return await _generate_period_report(report_type="daily", period="24h", title="Daily Report")
+    return await _generate_period_report(report_type="daily", period="24h", title="التقرير اليومي")
 
 
 async def generate_weekly_report() -> str:
-    return await _generate_period_report(report_type="weekly", period="7d", title="Weekly Report")
+    return await _generate_period_report(report_type="weekly", period="7d", title="التقرير الأسبوعي")
 
 
 async def generate_monthly_report() -> str:
-    return await _generate_period_report(report_type="monthly", period="30d", title="Monthly Report")
+    return await _generate_period_report(report_type="monthly", period="30d", title="التقرير الشهري")
 
 
 _GENERATORS = {

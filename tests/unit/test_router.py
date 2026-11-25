@@ -85,13 +85,13 @@ def _ctx(router_module, user_id, command, args=None):
 
 async def test_unknown_command_returns_helpful_message(router_env):
     text, buttons = await router_env.dispatch(_ctx(router_env, 111, "nope"))
-    assert "Unknown command" in text
+    assert "أمر غير معروف" in text
     assert buttons is None
 
 
 async def test_unauthorized_user_is_denied(router_env):
     text, buttons = await router_env.dispatch(_ctx(router_env, 999, "testcmd"))
-    assert "not authorized" in text
+    assert "غير مصرح" in text
     assert buttons is None
 
 
@@ -102,14 +102,14 @@ async def test_authorized_user_gets_handler_response(router_env):
 
 async def test_insufficient_role_is_forbidden(router_env):
     text, buttons = await router_env.dispatch(_ctx(router_env, 333, "testdestructive"))
-    assert "permission" in text.lower()
+    assert "صلاحية" in text
 
 
 async def test_destructive_action_requires_confirmation_first(router_env):
     text, buttons = await router_env.dispatch(_ctx(router_env, 222, "testdestructive"))
     assert "Are you sure" in text
     assert buttons is not None
-    assert buttons[0][0]["text"] == "✅ Confirm"
+    assert buttons[0][0]["text"] == "✅ تأكيد"
     assert buttons[0][0]["callback_data"] == "confirm|testdestructive|"
 
 
@@ -122,7 +122,7 @@ async def test_destructive_action_executes_when_confirmed(router_env):
 
 async def test_unhandled_exception_returns_generic_message(router_env):
     text, buttons = await router_env.dispatch(_ctx(router_env, 111, "testboom"))
-    assert "unexpected error" in text.lower()
+    assert "خطأ غير متوقع" in text
     assert buttons is None
 
 

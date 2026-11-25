@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 STATUS_EMOJI = {"up": "🟢", "down": "🔴", "degraded": "🟡", "unknown": "⚪"}
+STATUS_AR = {
+    "up": "يعمل",
+    "down": "متوقف",
+    "degraded": "بطيء",
+    "unknown": "غير معروف",
+    "not configured": "غير مهيأ",
+}
 
 
 def status_line(label: str, status: str, extra: str = "") -> str:
-    emoji = STATUS_EMOJI.get(status.lower(), "⚪")
+    low = status.lower()
+    emoji = STATUS_EMOJI.get(low, "⚪")
+    status_text = STATUS_AR.get(low, status.capitalize())
     suffix = f" ({extra})" if extra else ""
-    return f"{emoji} {label}: {status.capitalize()}{suffix}"
+    return f"{emoji} {label}: {status_text}{suffix}"
 
 
 def format_duration_ms(ms: int) -> str:

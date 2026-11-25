@@ -90,7 +90,7 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
     """
     handler = _REGISTRY.get(ctx.command)
     if handler is None:
-        return f"Unknown command: /{ctx.command}. Send /help to see available commands.", None
+        return f"أمر غير معروف: /{ctx.command}. أرسل /help لعرض الأوامر المتاحة.", None
 
     try:
         rate_limiter.check_rate_limit(ctx.user_id)
@@ -102,10 +102,10 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         await require_command_permission(ctx.user_id, ctx.command)
     except UnauthorizedError:
         logger.warning("Unauthorized access attempt by user_id=%s command=/%s", ctx.user_id, ctx.command)
-        return "🚫 You are not authorized to use this bot. Contact the Quiz Space owner.", None
+        return "🚫 غير مصرح لك باستخدام هذا البوت. تواصل مع مالك Quiz Space.", None
     except ForbiddenError:
         logger.warning("Forbidden: user_id=%s tried /%s without sufficient role", ctx.user_id, ctx.command)
-        return "🚫 You don't have permission to run this command.", None
+        return "🚫 ليس لديك صلاحية لتنفيذ هذا الأمر.", None
 
     try:
         text = await handler(ctx)
@@ -115,13 +115,13 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         return f"⚠️ {e}", buttons
     except ExternalServiceError as e:
         logger.error("External service error handling /%s: %s", ctx.command, e)
-        return f"❌ {e.service} is currently unreachable. Please try again shortly.", None
+        return f"❌ تعذر الوصول إلى {e.service} حالياً. حاول مرة أخرى بعد قليل.", None
     except QuizSpaceBotError as e:
         logger.error("Bot error handling /%s: %s", ctx.command, e)
         return f"❌ {e}", None
     except Exception:  # noqa: BLE001 - top-level safety net, see docs/03
         logger.exception("Unhandled exception while handling /%s", ctx.command)
-        return "❌ An unexpected error occurred. This has been logged and reported.", None
+        return "❌ حدث خطأ غير متوقع. تم تسجيل الخطأ وإبلاغ الإدارة.", None
 
 
 def registered_commands() -> list[str]:

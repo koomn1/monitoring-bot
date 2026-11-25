@@ -48,8 +48,8 @@ def confirmation_buttons(command: str, extra_args: list[str] | None = None) -> K
 
     return [
         [
-            {"text": "✅ Confirm", "callback_data": confirm_cb},
-            {"text": "❌ Cancel", "callback_data": cancel_cb},
+            {"text": "✅ تأكيد", "callback_data": confirm_cb},
+            {"text": "❌ إلغاء", "callback_data": cancel_cb},
         ]
     ]
 
@@ -57,42 +57,46 @@ def confirmation_buttons(command: str, extra_args: list[str] | None = None) -> K
 def main_menu_buttons() -> Keyboard:
     return [
         [
-            {"text": "📡 Status", "callback_data": "cmd|status"},
-            {"text": "📊 Dashboard", "callback_data": "cmd|dashboard"},
+            {"text": "📡 الحالة", "callback_data": "cmd|status"},
+            {"text": "📊 لوحة التحكم", "callback_data": "cmd|dashboard"},
         ],
         [
-            {"text": "⚡ Pulse", "callback_data": "cmd|pulse"},
-            {"text": "🐛 Errors", "callback_data": "cmd|errors"},
+            {"text": "⚡ النبض الحي", "callback_data": "cmd|pulse"},
+            {"text": "🐛 الأخطاء", "callback_data": "cmd|errors"},
         ],
         [
-            {"text": "🤖 AI Health", "callback_data": "cmd|ai"},
-            {"text": "🚨 Incidents", "callback_data": "cmd|incidents"},
+            {"text": "🤖 حالة الذكاء", "callback_data": "cmd|ai"},
+            {"text": "🚨 الحوادث", "callback_data": "cmd|incidents"},
         ],
         [
-            {"text": "💳 Payments", "callback_data": "cmd|payments"},
-            {"text": "🎁 Store Orders", "callback_data": "cmd|orders"},
+            {"text": "💳 المدفوعات", "callback_data": "cmd|payments"},
+            {"text": "🎁 طلبات المتجر", "callback_data": "cmd|orders"},
         ],
         [
-            {"text": "👥 Users", "callback_data": "cmd|users"},
-            {"text": "🏆 Points", "callback_data": "cmd|points"},
+            {"text": "👥 المستخدمون", "callback_data": "cmd|users"},
+            {"text": "🏆 النقاط", "callback_data": "cmd|points"},
         ],
         [
-            {"text": "📈 Analytics", "callback_data": "cmd|analytics"},
-            {"text": "📋 Reports", "callback_data": "cmd|reports"},
+            {"text": "💎 الباقات", "callback_data": "cmd|plans"},
+            {"text": "📝 الاختبارات", "callback_data": "cmd|quizzes"},
         ],
         [
-            {"text": "🗄️ Database", "callback_data": "cmd|database"},
-            {"text": "🛡️ Security", "callback_data": "cmd|security"},
+            {"text": "📈 التحليلات", "callback_data": "cmd|analytics"},
+            {"text": "📋 التقارير", "callback_data": "cmd|reports"},
         ],
         [
-            {"text": "🎟️ Coupons", "callback_data": "cmd|coupon"},
-            {"text": "⚙️ Platform", "callback_data": "cmd|platform"},
+            {"text": "🗄️ قاعدة البيانات", "callback_data": "cmd|database"},
+            {"text": "🛡️ الأمان", "callback_data": "cmd|security"},
+        ],
+        [
+            {"text": "🎟️ الكوبونات", "callback_data": "cmd|coupon"},
+            {"text": "⚙️ المنصة", "callback_data": "cmd|platform"},
         ],
     ]
 
 
 def refresh_button(command: str) -> Keyboard:
-    return [[{"text": "🔄 Refresh", "callback_data": f"cmd|{command}"}]]
+    return [[{"text": "🔄 تحديث", "callback_data": f"cmd|{command}"}]]
 
 
 _REFRESHABLE = {
@@ -118,6 +122,8 @@ _REFRESHABLE = {
     "coupon",
     "platform",
     "trial",
+    "plans",
+    "quizzes",
 }
 _MENU_COMMANDS = {"start", "help"}
 

@@ -28,9 +28,9 @@ async def test_dashboard_reports_missing_github_config_without_crashing(monkeypa
 
     response = await handle_dashboard(_context())
 
-    assert "Not configured" in response
+    assert "غير مهيأ" in response
     assert "GITHUB_REPO is not configured" in response
-    assert "Errors (24h): N/A" in response
+    assert "الأخطاء (24س): غير متاح" in response
 
 
 def test_configure_logging_suppresses_http_transport_urls():

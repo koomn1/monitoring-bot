@@ -377,7 +377,91 @@ async def delete_coupon(coupon_id: str, *, confirmed: bool = False) -> None:
     if not confirmed:
         raise ConfirmationRequiredError(
             "coupon",
-            f"PERMANENTLY DELETE coupon '{coupon_id}'? This cannot be undone.",
+            f"هل أنت متأكد من حذف الكوبون '{coupon_id}' نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
             extra_args=["delete", coupon_id],
         )
     await admin_actions_repo.delete_coupon(coupon_id)
+
+
+# ---------------------------------------------------------------------------
+# User fields, subscription plans, site notifications & quiz moderation
+# ---------------------------------------------------------------------------
+
+async def edit_user_field(
+    identifier: str,
+    field: str,
+    raw_value: str,
+    *,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if not confirmed:
+        user = await admin_actions_repo.resolve_user(identifier)
+        if not user:
+            raise QuizSpaceBotError(f"لم يتم العثور على المستخدم '{identifier}'.")
+        raise ConfirmationRequiredError(
+            "edituser",
+            f"تعديل الحقل '{field}' للمستخدم {user.get('name') or user['uid']} إلى '{raw_value}'؟",
+            extra_args=[user["uid"], field, raw_value],
+        )
+    try:
+        return await admin_actions_repo.edit_user_field(identifier, field=field, raw_value=raw_value)
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc
+
+
+async def edit_subscription_plan(
+    plan_id: str,
+    field: str,
+    raw_value: str,
+    *,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "editplan",
+            f"تعديل الحقل '{field}' للباقة '{plan_id}' إلى '{raw_value}'؟",
+            extra_args=[plan_id, field, raw_value],
+        )
+    try:
+        return await admin_actions_repo.edit_subscription_plan(plan_id, field=field, raw_value=raw_value)
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc
+
+
+async def send_platform_notification(
+    target_identifier: str,
+    title: str,
+    body: str,
+    *,
+    notif_type: str = "system",
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if not confirmed:
+        target_label = "جميع المستخدمين" if target_identifier.strip().lower() in ("all", "الكل", "*") else target_identifier
+        raise ConfirmationRequiredError(
+            "notify",
+            f"إرسال إشعار داخل الموقع إلى ({target_label})؟\nالعنوان: {title}",
+            extra_args=[target_identifier, f"{title}|{body}"],
+        )
+    try:
+        return await admin_actions_repo.send_platform_notification(
+            target_identifier=target_identifier,
+            title=title,
+            body=body,
+            notif_type=notif_type,
+        )
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc
+
+
+async def delete_quiz(quiz_id: str, *, confirmed: bool = False) -> dict[str, Any]:
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "deletequiz",
+            f"هل أنت متأكد من حذف الاختبار '{quiz_id}' نهائياً؟",
+            extra_args=[quiz_id],
+        )
+    try:
+        return await admin_actions_repo.delete_quiz(quiz_id)
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc

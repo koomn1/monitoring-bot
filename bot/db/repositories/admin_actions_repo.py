@@ -688,3 +688,151 @@ async def toggle_coupon_active(coupon_id: str, *, is_active: bool) -> dict[str, 
 
 async def delete_coupon(coupon_id: str) -> None:
     target_db().table("coupon_codes").delete().eq("id", coupon_id.strip()).execute()
+
+
+# ---------------------------------------------------------------------------
+# User field editing, plan editing, notifications, and quiz moderation
+# ---------------------------------------------------------------------------
+
+_EDITABLE_USER_FIELDS = {
+    "name": "str",
+    "custom_id": "str",
+    "name_color": "str",
+    "badge_color": "str",
+    "is_admin": "bool",
+    "xp": "int",
+    "level": "int",
+}
+
+
+async def edit_user_field(identifier: str, *, field: str, raw_value: str) -> dict[str, Any]:
+    if field not in _EDITABLE_USER_FIELDS:
+        raise ValueError(
+            f"الحقل '{field}' غير قابل للتعديل. الحقول المتاحة: {', '.join(_EDITABLE_USER_FIELDS)}"
+        )
+    user = await resolve_user(identifier)
+    if not user:
+        raise ValueError(f"لم يتم العثور على المستخدم '{identifier}'.")
+
+    ftype = _EDITABLE_USER_FIELDS[field]
+    val: Any
+    if ftype == "bool":
+        low = raw_value.strip().lower()
+        if low in ("true", "1", "yes", "on", "نعم"):
+            val = True
+        elif low in ("false", "0", "no", "off", "لا"):
+            val = False
+        else:
+            raise ValueError(f"قيمة غير صالحة لـ {field}: استخدم true أو false.")
+    elif ftype == "int":
+        try:
+            val = max(0, int(raw_value.strip()))
+        except ValueError as exc:
+            raise ValueError(f"قيمة {field} يجب أن تكون رقماً صحيحاً.") from exc
+    else:
+        val = raw_value.strip()
+
+    target_db().table("users").update(
+        {field: val, "updated_at": _now_iso()}
+    ).eq("uid", user["uid"]).execute()
+    return {"uid": user["uid"], "name": user.get("name"), "field": field, "value": val}
+
+
+_EDITABLE_PLAN_FIELDS = {
+    "price": "float",
+    "name": "str",
+    "name_ar": "str",
+    "duration_months": "int",
+    "is_active": "bool",
+    "is_lifetime": "bool",
+    "badge_style": "str",
+    "badge_color": "str",
+    "priority_level": "int",
+}
+
+
+async def edit_subscription_plan(plan_id: str, *, field: str, raw_value: str) -> dict[str, Any]:
+    if field not in _EDITABLE_PLAN_FIELDS:
+        raise ValueError(
+            f"الحقل '{field}' غير قابل للتعديل. الحقول المتاحة: {', '.join(_EDITABLE_PLAN_FIELDS)}"
+        )
+    plan_res = target_db().table("subscription_plans").select("*").eq("id", plan_id.strip()).limit(1).execute()
+    if not plan_res.data:
+        raise ValueError(f"الباقة '{plan_id}' غير موجودة.")
+
+    ftype = _EDITABLE_PLAN_FIELDS[field]
+    val: Any
+    if ftype == "bool":
+        low = raw_value.strip().lower()
+        if low in ("true", "1", "yes", "on", "نعم"):
+            val = True
+        elif low in ("false", "0", "no", "off", "لا"):
+            val = False
+        else:
+            raise ValueError(f"قيمة غير صالحة لـ {field}: استخدم true أو false.")
+    elif ftype == "int":
+        try:
+            val = int(raw_value.strip())
+        except ValueError as exc:
+            raise ValueError(f"قيمة {field} يجب أن تكون رقماً صحيحاً.") from exc
+    elif ftype == "float":
+        try:
+            val = float(raw_value.strip())
+        except ValueError as exc:
+            raise ValueError(f"قيمة {field} يجب أن تكون رقماً.") from exc
+    else:
+        val = raw_value.strip()
+
+    target_db().table("subscription_plans").update({field: val}).eq("id", plan_id.strip()).execute()
+    return {"plan_id": plan_id.strip(), "field": field, "value": val}
+
+
+async def send_platform_notification(
+    *,
+    target_identifier: str,
+    title: str,
+    body: str,
+    notif_type: str = "system",
+    sender_name: str = "إدارة Quiz Space",
+) -> dict[str, Any]:
+    user_id: str | None = None
+    target_label = "جميع المستخدمين"
+    if target_identifier.strip().lower() not in ("all", "الكل", "*"):
+        user = await resolve_user(target_identifier)
+        if not user:
+            raise ValueError(f"لم يتم العثور على المستخدم '{target_identifier}'.")
+        user_id = user["uid"]
+        target_label = user.get("name") or user["uid"]
+
+    if notif_type not in ("info", "community", "system", "promotion"):
+        notif_type = "system"
+
+    notif_id = str(uuid.uuid4())
+    now_iso = _now_iso()
+    payload = {
+        "id": notif_id,
+        "user_id": user_id,
+        "type": notif_type,
+        "title": title.strip()[:120],
+        "body": body.strip()[:1000],
+        "sender_name": sender_name,
+        "is_read": False,
+        "created_at": now_iso,
+    }
+    target_db().table("notifications").insert(payload).execute()
+    return {
+        "id": notif_id,
+        "target_label": target_label,
+        "user_id": user_id,
+        "title": payload["title"],
+        "body": payload["body"],
+    }
+
+
+async def delete_quiz(quiz_id: str) -> dict[str, Any]:
+    res = target_db().table("quizzes").select("id,title").eq("id", quiz_id.strip()).limit(1).execute()
+    if not res.data:
+        raise ValueError(f"الاختبار '{quiz_id}' غير موجود.")
+    quiz = res.data[0]
+    target_db().table("quizzes").delete().eq("id", quiz["id"]).execute()
+    return {"id": quiz["id"], "title": quiz.get("title")}
