@@ -618,7 +618,6 @@ async def handle_payments(ctx: CommandContext) -> str:
         if notes:
             lines.append("<b>أسباب الرفض:</b>")
             lines.extend(notes[:5])
-        lines.append("الإجراءات: <code>/approve &lt;id&gt;</code> | <code>/reject &lt;id&gt; [السبب]</code>")
 
         action_rows.append(
             [
@@ -765,7 +764,6 @@ async def handle_points(ctx: CommandContext) -> str:
                 lines.append(
                     f"• {sign}{pts} نقطة — {_esc(entry.get('event_type'))}{note_txt} ({_age(entry.get('created_at'))})"
                 )
-        lines.append("\nللتعديل: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>")
         identifier = str(detail.get("uid") or "")
         if identifier:
             set_reply_buttons(
@@ -813,7 +811,7 @@ async def handle_points(ctx: CommandContext) -> str:
                 f"[{_esc(entry.get('event_type'))}] ({_age(entry.get('created_at'))})"
             )
 
-    lines.append("\nبحث مستخدم: <code>/points &lt;uid_or_email&gt;</code> | تعديل: <code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>")
+    lines.append("\nافتح ملف المستخدم من قسم المستخدمين لإدارة النقاط والعضوية.")
     return "\n".join(lines)
 
 
@@ -896,7 +894,6 @@ async def handle_orders(ctx: CommandContext) -> str:
         lines.extend(refs[:5])
     if action_rows:
         set_reply_buttons(action_rows)
-    lines.append("\nالإجراءات: <code>/approveorder &lt;id&gt;</code> | <code>/rejectorder &lt;id&gt; [ملاحظة]</code>")
     return "\n".join(lines)
 
 
@@ -1135,10 +1132,7 @@ async def handle_user(ctx: CommandContext) -> str:
         [
             "",
             "<b>إجراءات سريعة للأدمن</b>",
-            f"• الباقة: <code>/membership {_esc(u.get('uid'))} &lt;free|silver|gold|diamond|lifetime|founder&gt; [days]</code>",
-            f"• النقاط: <code>/grantpoints {_esc(u.get('uid'))} &lt;+/-amount&gt; [ملاحظة]</code>",
-            f"• تعديل بيانات: <code>/edituser {_esc(u.get('uid'))} &lt;name|custom_id|name_color|is_admin|xp|level&gt; &lt;value&gt;</code>",
-            f"• إيقاف: <code>/suspend {_esc(u.get('uid'))} &lt;on|off&gt;</code>",
+            "استخدم الأزرار أسفل الملف لتعديل العضوية والنقاط والشارة والحالة.",
         ]
     )
 
@@ -1647,13 +1641,24 @@ async def handle_platform(ctx: CommandContext) -> str:
         mm = "🔴 مفعّل" if cfg.get("maintenance_mode") else "🟢 متوقف"
         reg = "✅ مفتوح" if cfg.get("allow_registrations") else "❌ مغلق"
         updated = _age(cfg.get("updated_at"))
+        _section_buttons(
+            [
+                [
+                    ("⏸️ إيقاف الصيانة", "platform", ["maintenance", "off"]),
+                    ("🔧 تشغيل الصيانة", "platform", ["maintenance", "on"]),
+                ],
+                [
+                    ("🔒 إغلاق التسجيل", "platform", ["registration", "off"]),
+                    ("✅ فتح التسجيل", "platform", ["registration", "on"]),
+                ],
+            ]
+        )
         return (
             "⚙️ <b>إعدادات المنصة</b>\n"
             f"• وضع الصيانة: <b>{mm}</b>\n"
             f"• فتح التسجيل: <b>{reg}</b>\n"
             f"• آخر تحديث: {updated}\n\n"
-            "تبديل الصيانة: <code>/platform maintenance on|off</code>\n"
-            "تبديل التسجيل: <code>/platform registration on|off</code>"
+            "استخدم الأزرار لتطبيق التغيير بعد التأكيد."
         )
 
     confirmed = "confirm" in ctx.args
@@ -1706,7 +1711,14 @@ async def handle_trial(ctx: CommandContext) -> str:
             state = "✅ نشط" if offer.get("is_active") else "❌ غير نشط"
             updated = _age(offer.get("updated_at"))
             lines.append(f"• <b>{offer.get('duration_days')} يوم</b>: {state} (آخر تحديث {updated})")
-        lines.append("\nللتعديل: <code>/trial &lt;7|14|30&gt; &lt;on|off&gt;</code>")
+        trial_buttons = []
+        for offer in offers:
+            duration = str(offer.get("duration_days"))
+            next_state = "off" if offer.get("is_active") else "on"
+            trial_buttons.append(
+                [cmd_button(f"{'⏸️ إيقاف' if offer.get('is_active') else '▶️ تفعيل'} {duration} يوم", "trial", [duration, next_state])]
+            )
+        set_reply_buttons(trial_buttons)
         return "\n".join(lines)
 
     if len(ctx.args) < 2 or ctx.args[1].lower() not in ("on", "off"):
@@ -1770,11 +1782,6 @@ async def handle_coupon(ctx: CommandContext) -> str:
         lines.append(format_cards(c_rows, [("المعرف", "المعرف"), ("الخصم", "الخصم"), ("الاستخدام", "الاستخدام"), ("الحالة", "الحالة")]))
         if coupon_action_rows:
             set_reply_buttons(coupon_action_rows[:10])
-        lines.append(
-            "\nإنشاء: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
-            "تبديل: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
-            "حذف: <code>/coupon delete &lt;id&gt;</code>"
-        )
         return "\n".join(lines)
 
     sub = args[0].lower()
@@ -1891,7 +1898,6 @@ async def handle_topusers(ctx: CommandContext) -> str:
             for idx, row in enumerate(rows, 1)
         ]
         lines.append(format_cards(t_rows, [("النقاط", "النقاط"), ("المستوى", "المستوى")]))
-        lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
         return "\n".join(lines)
 
     rows = await platform_repo.get_top_users_by_xp(limit=limit)
@@ -1907,7 +1913,6 @@ async def handle_topusers(ctx: CommandContext) -> str:
         for idx, row in enumerate(rows, 1)
     ]
     lines.append(format_cards(t_rows, [("XP", "XP"), ("المستوى", "المستوى")]))
-    lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
     return "\n".join(lines)
 
 
@@ -1992,7 +1997,12 @@ async def handle_planedit(ctx: CommandContext) -> str:
                 ("📅 مدة 3 أشهر", "editplan", [plan_id, "duration_months", "3"]),
                 ("📅 مدة 12 شهر", "editplan", [plan_id, "duration_months", "12"]),
             ],
-            [("✍️ تعديل مخصص", "editplan_help", [plan_id]), ("💎 قائمة الباقات", "plans", None)],
+            [
+                ("💰 150 جنيه", "editplan", [plan_id, "price", "150"]),
+                ("💰 300 جنيه", "editplan", [plan_id, "price", "300"]),
+                ("💰 1500 جنيه", "editplan", [plan_id, "price", "1500"]),
+            ],
+            [("💎 قائمة الباقات", "plans", None)],
         ]
     )
     return (
@@ -2008,11 +2018,9 @@ async def handle_planedit(ctx: CommandContext) -> str:
 async def handle_editplan_help(ctx: CommandContext) -> str:
     plan_id = ctx.args[0] if ctx.args else "plan_id"
     return (
-        f"✍️ <b>تعديل مخصص للباقة {_esc(plan_id)}</b>\n\n"
-        "أرسل الأمر بالقيمة المطلوبة، وسيظهر تأكيد قبل التنفيذ:\n"
-        f"<code>/editplan {_esc(plan_id)} price 350</code>\n"
-        f"<code>/editplan {_esc(plan_id)} name_ar الاسم الجديد</code>\n"
-        f"<code>/editplan {_esc(plan_id)} duration_months 6</code>"
+        f"✍️ <b>التعديل المخصص للباقة {_esc(plan_id)}</b>\n\n"
+        "استخدم أحد أزرار السعر أو المدة من لوحة الباقة.\n"
+        "التغييرات الحساسة لا تُنفذ إلا بعد تأكيد المالك."
     )
 
 
@@ -2079,13 +2087,20 @@ async def handle_quizzes(ctx: CommandContext) -> str:
     if not quizzes:
         return "📝 <b>أحدث الاختبارات</b>\n• لا توجد اختبارات مسجلة."
     lines = [f"📝 <b>أحدث الاختبارات ({len(quizzes)})</b>", ""]
+    quiz_action_rows = []
     for q in quizzes:
+        quiz_id = str(q.get("id", ""))
         vis = "🌐 عام" if q.get("is_public") else "🔒 خاص"
         lines.append(
-            f"• <code>{_esc(str(q.get('id', ''))[:8])}</code> — <b>{_esc(q.get('title'), 45)}</b>\n"
+            f"• <b>{_esc(q.get('title'), 45)}</b>\n"
+            f"  المعرف: <code>{_esc(quiz_id[:8])}</code>\n"
             f"  {vis} | {q.get('total_plays', 0)} تشغيل | {_age(q.get('created_at'))}"
         )
-    lines.append("\nلحذف اختبار: <code>/deletequiz &lt;quiz_id&gt;</code>")
+        if quiz_id:
+            quiz_title = str(q.get("title") or quiz_id)[:20]
+            quiz_action_rows.append([cmd_button(f"🗑️ حذف {quiz_title}", "deletequiz", [quiz_id])])
+    if quiz_action_rows:
+        set_reply_buttons(quiz_action_rows[:10])
     return "\n".join(lines)
 
 

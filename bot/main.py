@@ -238,6 +238,9 @@ async def _post_init(application: Application) -> None:
         BotCommand("help", "عرض جميع الأوامر وطريقة الاستخدام"),
     ]
     try:
+        # Clear stale command suggestions cached by Telegram clients before
+        # publishing the compact section-based command menu.
+        await application.bot.delete_my_commands()
         await application.bot.set_my_commands(menu_commands)
     except Exception:  # noqa: BLE001
         logger.warning("Could not sync Telegram command menu")
