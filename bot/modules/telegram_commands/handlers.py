@@ -1023,6 +1023,7 @@ async def handle_users(ctx: CommandContext) -> str:
 
     if table_source:
         table_rows = []
+        user_action_rows = []
         for u in table_source:
             uid_full = str(u.get("uid") or "")
             plan_txt = str(u.get("plan_name") or ("بريميوم" if u.get("is_premium") else "مجاني"))
@@ -1037,9 +1038,14 @@ async def handle_users(ctx: CommandContext) -> str:
                     "النقاط": f"{int(pts_val or 0):,}",
                 }
             )
+            if uid_full:
+                label = str(u.get("name") or u.get("custom_id") or uid_full[:8])[:24]
+                user_action_rows.append([cmd_button(f"👤 {label}", "user", [uid_full])])
         lines.append("")
         lines.append(format_table(table_rows, ["ID", "الاسم", "الباقة", "الحالة", "النقاط"], max_col_width=13))
         lines.append("لعرض وتعديل مستخدم: <code>/user &lt;uid_or_email&gt;</code>")
+        if user_action_rows:
+            set_reply_buttons(user_action_rows[:8])
 
     return "\n".join(lines)
 
@@ -1925,20 +1931,74 @@ async def handle_plans(ctx: CommandContext) -> str:
         return "💎 <b>باقات الاشتراك</b>\n• لا توجد باقات مسجلة."
     lines = ["💎 <b>جدول باقات الاشتراك في الموقع</b>", ""]
     p_rows = []
+    plan_action_rows = []
     for p in plans:
+        plan_id = str(p.get("id") or "")
         dur = "مدى الحياة" if p.get("is_lifetime") else f"{p.get('duration_months', 1)}ش"
         p_rows.append(
             {
-                "ID": str(p.get("id") or ""),
+                "ID": plan_id,
                 "الباقة": p.get("name_ar") or p.get("name") or "-",
                 "السعر": f"{p.get('price', 0)} {p.get('currency', 'EGP')}",
                 "المدة": dur,
                 "الحالة": "نشط" if p.get("is_active") else "متوقف",
             }
         )
+        if plan_id:
+            plan_action_rows.append([cmd_button(f"⚙️ تعديل {plan_id}", "planedit", [plan_id])])
     lines.append(format_table(p_rows, ["ID", "الباقة", "السعر", "المدة", "الحالة"], max_col_width=14))
-    lines.append("\nلتعديل باقة: <code>/editplan &lt;plan_id&gt; &lt;price|name|name_ar|duration_months|is_active&gt; &lt;value&gt;</code>")
+    lines.append("\nاختر زر <b>تعديل</b> بجوار الباقة لفتح لوحة الإجراءات. ويمكنك أيضاً استخدام الأمر النصي للتعديلات المخصصة.")
+    if plan_action_rows:
+        set_reply_buttons(plan_action_rows)
     return "\n".join(lines)
+
+
+@command("planedit")
+async def handle_planedit(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
+
+    if not ctx.args:
+        return "اختر الباقة من زر التعديل داخل صفحة الباقات."
+    plan_id = ctx.args[0]
+    plans = await platform_repo.list_subscription_plans()
+    plan = next((item for item in plans if str(item.get("id")) == plan_id), None)
+    if plan is None:
+        return f"لم يتم العثور على الباقة <code>{_esc(plan_id)}</code>. حدّث القائمة وحاول مرة أخرى."
+
+    is_active = bool(plan.get("is_active"))
+    next_state = "false" if is_active else "true"
+    state_label = "إيقاف" if is_active else "تفعيل"
+    duration_label = "مدى الحياة" if plan.get("is_lifetime") else f"{plan.get('duration_months', 1)} شهر"
+    _section_buttons(
+        [
+            [(f"{('⏸️' if is_active else '▶️')} {state_label}", "editplan", [plan_id, "is_active", next_state])],
+            [
+                ("📅 مدة 1 شهر", "editplan", [plan_id, "duration_months", "1"]),
+                ("📅 مدة 3 أشهر", "editplan", [plan_id, "duration_months", "3"]),
+                ("📅 مدة 12 شهر", "editplan", [plan_id, "duration_months", "12"]),
+            ],
+            [("✍️ تعديل مخصص", "editplan_help", [plan_id]), ("💎 قائمة الباقات", "plans", None)],
+        ]
+    )
+    return (
+        f"💎 <b>إدارة الباقة: {_esc(plan.get('name_ar') or plan.get('name') or plan_id)}</b>\n\n"
+        f"• السعر الحالي: <b>{_esc(plan.get('price'))} {_esc(plan.get('currency', 'EGP'))}</b>\n"
+        f"• المدة الحالية: <b>{duration_label}</b>\n"
+        f"• الحالة: <b>{'نشطة' if is_active else 'متوقفة'}</b>\n\n"
+        "الأزرار تنفذ التغيير بعد طلب تأكيد المالك."
+    )
+
+
+@command("editplan_help")
+async def handle_editplan_help(ctx: CommandContext) -> str:
+    plan_id = ctx.args[0] if ctx.args else "plan_id"
+    return (
+        f"✍️ <b>تعديل مخصص للباقة {_esc(plan_id)}</b>\n\n"
+        "أرسل الأمر بالقيمة المطلوبة، وسيظهر تأكيد قبل التنفيذ:\n"
+        f"<code>/editplan {_esc(plan_id)} price 350</code>\n"
+        f"<code>/editplan {_esc(plan_id)} name_ar الاسم الجديد</code>\n"
+        f"<code>/editplan {_esc(plan_id)} duration_months 6</code>"
+    )
 
 
 @command("editplan")

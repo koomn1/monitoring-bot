@@ -38,3 +38,5 @@ def test_new_sections_fail_closed_with_explicit_roles():
     assert COMMAND_MIN_ROLE["people"] == Role.ADMIN
     assert COMMAND_MIN_ROLE["platform_admin"] == Role.OWNER
     assert COMMAND_MIN_ROLE["secrets"] == Role.OWNER
+    assert COMMAND_MIN_ROLE["planedit"] == Role.OWNER
+    assert COMMAND_MIN_ROLE["editplan_help"] == Role.OWNER

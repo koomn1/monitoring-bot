@@ -62,6 +62,8 @@ COMMAND_MIN_ROLE: dict[str, Role] = {
     "operations": Role.ADMIN,
     "security_center": Role.ADMIN,
     "secrets": Role.OWNER,
+    "planedit": Role.OWNER,
+    "editplan_help": Role.OWNER,
     "status": Role.VIEWER,
     "dashboard": Role.VIEWER,
     "pulse": Role.VIEWER,
