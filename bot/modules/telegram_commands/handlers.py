@@ -18,7 +18,7 @@ from typing import Any
 
 from bot.core.exceptions import ConfigurationError
 from bot.core.router import CommandContext, command, registered_commands
-from bot.utils.formatting import format_table, status_line
+from bot.utils.formatting import format_cards, status_line
 from bot.utils.keyboards import cmd_button, set_reply_buttons
 from bot.utils.style import title
 from bot.utils.time_utils import humanize_delta
@@ -579,7 +579,7 @@ async def handle_payments(ctx: CommandContext) -> str:
         f"• قرارات آخر 7 أيام: ✅ {_fmt(approved_7d)} مقبول | ❌ {_fmt(rejected_7d)} مرفوض",
     ]
     if items:
-        table_rows = []
+        card_rows = []
         action_rows = []
         notes: list[str] = []
         for req in items:
@@ -590,12 +590,12 @@ async def handle_payments(ctx: CommandContext) -> str:
             who = str(req.get("name") or req.get("user_id") or "مستخدم")
             shot = str(req.get("payment_screenshot") or "").strip()
             pay_label = "تجريبي" if shot.startswith("TRIAL_OFFER_") else ("إيصال" if shot else "تحويل")
-            table_rows.append(
+            card_rows.append(
                 {
-                    "المعرف": short_id,
+                    "title": f"💳 طلب {short_id}",
                     "المستخدم": who,
                     "الباقة": plan,
-                    "الدفع": pay_label,
+                    "طريقة الدفع": pay_label,
                     "الحالة": req_status,
                 }
             )
@@ -608,9 +608,13 @@ async def handle_payments(ctx: CommandContext) -> str:
                         cmd_button(f"❌ رفض #{short_id}", "reject", [req_id]),
                     ]
                 )
-
         lines.append("")
-        lines.append(format_table(table_rows, ["المعرف", "المستخدم", "الباقة", "الدفع", "الحالة"], max_col_width=14))
+        lines.append(
+            format_cards(
+                card_rows,
+                [("المستخدم", "المستخدم"), ("الباقة", "الباقة"), ("الدفع", "طريقة الدفع"), ("الحالة", "الحالة")],
+            )
+        )
         if notes:
             lines.append("<b>أسباب الرفض:</b>")
             lines.extend(notes[:5])
@@ -783,19 +787,18 @@ async def handle_points(ctx: CommandContext) -> str:
     overview = await admin_actions.get_points_overview(limit=10)
     top_bal = overview.get("top_balances") or []
     recent_led = overview.get("recent_ledger") or []
-    lines = ["🏆 <b>جدول النقاط والمكافآت</b>", ""]
+    lines = ["🏆 <b>النقاط والمكافآت</b>", ""]
     if top_bal:
         bal_rows = [
             {
-                "#": idx,
-                "الاسم": row.get("display_name") or str(row.get("user_id", ""))[:8],
+                "title": f"#{idx} · {row.get('display_name') or str(row.get('user_id', ''))[:8]}",
                 "النقاط": f"{int(row.get('points') or 0):,}",
                 "العملات": f"{int(row.get('coins') or 0):,}",
                 "المستوى": row.get("level", 1),
             }
             for idx, row in enumerate(top_bal, start=1)
         ]
-        lines.append(format_table(bal_rows, ["#", "الاسم", "النقاط", "العملات", "المستوى"], max_col_width=14))
+        lines.append(format_cards(bal_rows, [("النقاط", "النقاط"), ("العملات", "العملات"), ("المستوى", "المستوى")]))
     else:
         lines.append("• لا توجد أرصدة نقاط مسجلة بعد.")
 
@@ -855,7 +858,7 @@ async def handle_orders(ctx: CommandContext) -> str:
         lines.append("✅ لا توجد طلبات في متجر المكافآت.")
         return "\n".join(lines)
 
-    table_rows = []
+    card_rows = []
     action_rows = []
     refs: list[str] = []
     for order in orders:
@@ -863,9 +866,9 @@ async def handle_orders(ctx: CommandContext) -> str:
         short_id = oid[:8]
         status_val = str(order.get("status") or "pending")
         amt = f"{order.get('amount_egp', 0)}ج/{order.get('amount_points', 0)}ن"
-        table_rows.append(
+        card_rows.append(
             {
-                "الطلب": short_id,
+                "title": f"🎁 طلب {short_id}",
                 "الصنف": order.get("item_id") or "-",
                 "القيمة": amt,
                 "الدفع": order.get("payment_method") or "-",
@@ -882,7 +885,12 @@ async def handle_orders(ctx: CommandContext) -> str:
                 ]
             )
 
-    lines.append(format_table(table_rows, ["الطلب", "الصنف", "القيمة", "الدفع", "الحالة"], max_col_width=13))
+    lines.append(
+        format_cards(
+            card_rows,
+            [("الصنف", "الصنف"), ("القيمة", "القيمة"), ("الدفع", "الدفع"), ("الحالة", "الحالة")],
+        )
+    )
     if refs:
         lines.append("<b>مراجع الدفع:</b>")
         lines.extend(refs[:5])
@@ -999,7 +1007,7 @@ async def handle_users(ctx: CommandContext) -> str:
 
     filter_labels = {"all": "الكل", "premium": "البريميوم", "suspended": "الموقوفون"}
     lines = [
-        title(f"جدول المستخدمين ({filter_labels[filter_mode]})", "users"),
+        title(f"المستخدمون · {filter_labels[filter_mode]}", "users"),
         f"الإجمالي: {total} | البريميوم: {premium} ({pct}) | أحدث المسجلين: {len(recent)}",
     ]
 
@@ -1022,17 +1030,17 @@ async def handle_users(ctx: CommandContext) -> str:
         table_source = recent[:10]
 
     if table_source:
-        table_rows = []
+        card_rows = []
         user_action_rows = []
         for u in table_source:
             uid_full = str(u.get("uid") or "")
             plan_txt = str(u.get("plan_name") or ("بريميوم" if u.get("is_premium") else "مجاني"))
             status_txt = "موقوف" if u.get("is_suspended") else "نشط"
             pts_val = u.get("reward_points", u.get("xp", 0))
-            table_rows.append(
+            card_rows.append(
                 {
-                    "ID": uid_full[:8],
-                    "الاسم": u.get("name") or u.get("custom_id") or uid_full[:8],
+                    "title": f"👤 {u.get('name') or u.get('custom_id') or uid_full[:8]}",
+                    "المعرف": uid_full[:8],
                     "الباقة": plan_txt,
                     "الحالة": status_txt,
                     "النقاط": f"{int(pts_val or 0):,}",
@@ -1042,8 +1050,8 @@ async def handle_users(ctx: CommandContext) -> str:
                 label = str(u.get("name") or u.get("custom_id") or uid_full[:8])[:24]
                 user_action_rows.append([cmd_button(f"👤 {label}", "user", [uid_full])])
         lines.append("")
-        lines.append(format_table(table_rows, ["ID", "الاسم", "الباقة", "الحالة", "النقاط"], max_col_width=13))
-        lines.append("لعرض وتعديل مستخدم: <code>/user &lt;uid_or_email&gt;</code>")
+        lines.append(format_cards(card_rows, [("المعرف", "المعرف"), ("الباقة", "الباقة"), ("الحالة", "الحالة"), ("النقاط", "النقاط")]))
+        lines.append("اختر زر المستخدم لفتح ملفه الكامل وإجراءات التعديل.")
         if user_action_rows:
             set_reply_buttons(user_action_rows[:8])
 
@@ -1738,21 +1746,30 @@ async def handle_coupon(ctx: CommandContext) -> str:
         coupons = await admin_actions.list_coupons(limit=20)
         if not coupons:
             return "🎟️ <b>كوبونات الخصم</b>\n• لا توجد كوبونات."
-        lines = ["🎟️ <b>جدول كوبونات الخصم</b>", ""]
+        lines = ["🎟️ <b>كوبونات الخصم</b>", ""]
         c_rows = []
+        coupon_action_rows = []
         for c in coupons:
+            coupon_id = str(c.get("id") or "")
             used = c.get("used_count", 0)
             max_u = c.get("max_uses", 0)
             c_rows.append(
                 {
-                    "ID": str(c.get("id") or ""),
-                    "الكود": str(c.get("code") or ""),
+                    "title": f"🎟️ {c.get('code') or coupon_id}",
+                    "المعرف": coupon_id,
                     "الخصم": f"{c.get('discount_percent', 0)}%",
                     "الاستخدام": f"{used}/{max_u}" if max_u else f"{used}/∞",
                     "الحالة": "نشط" if c.get("is_active") else "متوقف",
                 }
             )
-        lines.append(format_table(c_rows, ["ID", "الكود", "الخصم", "الاستخدام", "الحالة"], max_col_width=13))
+            if coupon_id:
+                next_state = "off" if c.get("is_active") else "on"
+                action_rows = [cmd_button(f"{'⏸️ إيقاف' if c.get('is_active') else '▶️ تفعيل'} {coupon_id[:8]}", "coupon", ["toggle", coupon_id, next_state])]
+                action_rows.append(cmd_button(f"🗑️ حذف {coupon_id[:8]}", "coupon", ["delete", coupon_id]))
+                coupon_action_rows.append(action_rows)
+        lines.append(format_cards(c_rows, [("المعرف", "المعرف"), ("الخصم", "الخصم"), ("الاستخدام", "الاستخدام"), ("الحالة", "الحالة")]))
+        if coupon_action_rows:
+            set_reply_buttons(coupon_action_rows[:10])
         lines.append(
             "\nإنشاء: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
             "تبديل: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
@@ -1862,36 +1879,34 @@ async def handle_topusers(ctx: CommandContext) -> str:
 
     if mode in ("points", "pts", "rewards"):
         rows = await platform_repo.get_top_users_by_points(limit=limit)
-        lines = ["🏆 <b>جدول المتصدرين — نقاط المكافآت</b>", ""]
+        lines = ["🏆 <b>المتصدرون — نقاط المكافآت</b>", ""]
         if not rows:
             return lines[0] + "\n• لا توجد بيانات متاحة."
         t_rows = [
             {
-                "#": idx,
-                "الاسم": row.get("display_name", str(row.get("user_id", ""))[:8]),
+                "title": f"#{idx} · {row.get('display_name', str(row.get('user_id', ''))[:8])}",
                 "النقاط": f"{int(row.get('points') or 0):,}",
                 "المستوى": row.get("level", 1),
             }
             for idx, row in enumerate(rows, 1)
         ]
-        lines.append(format_table(t_rows, ["#", "الاسم", "النقاط", "المستوى"], max_col_width=16))
+        lines.append(format_cards(t_rows, [("النقاط", "النقاط"), ("المستوى", "المستوى")]))
         lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
         return "\n".join(lines)
 
     rows = await platform_repo.get_top_users_by_xp(limit=limit)
-    lines = ["🏆 <b>جدول المتصدرين — نقاط الخبرة XP</b>", ""]
+    lines = ["🏆 <b>المتصدرون — نقاط الخبرة XP</b>", ""]
     if not rows:
         return lines[0] + "\n• لا توجد بيانات متاحة."
     t_rows = [
         {
-            "#": idx,
-            "الاسم": ("⭐ " if row.get("is_premium") else "") + str(row.get("name") or row.get("custom_id") or str(row.get("uid", ""))[:8]),
+            "title": f"#{idx} · {('⭐ ' if row.get('is_premium') else '')}{row.get('name') or row.get('custom_id') or str(row.get('uid', ''))[:8]}",
             "XP": f"{int(row.get('xp') or 0):,}",
             "المستوى": row.get("level", 1),
         }
         for idx, row in enumerate(rows, 1)
     ]
-    lines.append(format_table(t_rows, ["#", "الاسم", "XP", "المستوى"], max_col_width=16))
+    lines.append(format_cards(t_rows, [("XP", "XP"), ("المستوى", "المستوى")]))
     lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
     return "\n".join(lines)
 
@@ -1929,7 +1944,7 @@ async def handle_plans(ctx: CommandContext) -> str:
     plans = await platform_repo.list_subscription_plans()
     if not plans:
         return "💎 <b>باقات الاشتراك</b>\n• لا توجد باقات مسجلة."
-    lines = ["💎 <b>جدول باقات الاشتراك في الموقع</b>", ""]
+    lines = ["💎 <b>باقات الاشتراك في الموقع</b>", ""]
     p_rows = []
     plan_action_rows = []
     for p in plans:
@@ -1937,8 +1952,8 @@ async def handle_plans(ctx: CommandContext) -> str:
         dur = "مدى الحياة" if p.get("is_lifetime") else f"{p.get('duration_months', 1)}ش"
         p_rows.append(
             {
-                "ID": plan_id,
-                "الباقة": p.get("name_ar") or p.get("name") or "-",
+                "title": f"💎 {p.get('name_ar') or p.get('name') or plan_id}",
+                "المعرف": plan_id,
                 "السعر": f"{p.get('price', 0)} {p.get('currency', 'EGP')}",
                 "المدة": dur,
                 "الحالة": "نشط" if p.get("is_active") else "متوقف",
@@ -1946,7 +1961,7 @@ async def handle_plans(ctx: CommandContext) -> str:
         )
         if plan_id:
             plan_action_rows.append([cmd_button(f"⚙️ تعديل {plan_id}", "planedit", [plan_id])])
-    lines.append(format_table(p_rows, ["ID", "الباقة", "السعر", "المدة", "الحالة"], max_col_width=14))
+    lines.append(format_cards(p_rows, [("المعرف", "المعرف"), ("السعر", "السعر"), ("المدة", "المدة"), ("الحالة", "الحالة")]))
     lines.append("\nاختر زر <b>تعديل</b> بجوار الباقة لفتح لوحة الإجراءات. ويمكنك أيضاً استخدام الأمر النصي للتعديلات المخصصة.")
     if plan_action_rows:
         set_reply_buttons(plan_action_rows)
@@ -2178,8 +2193,13 @@ async def handle_envcheck(ctx: CommandContext) -> str:
         "🔑 <b>فحص المفاتيح السرية وإعدادات البيئة</b>",
         f"• الجاهزية: <b>{configured_count}/{len(checks)}</b> مضبوط (بدون عرض أي قيم سرية)",
         "",
-        format_table(rows, ["المفتاح", "الحالة", "الوظيفة"], max_col_width=25),
+        "<b>حالة المتغيرات</b>",
     ]
+    for row in rows:
+        lines.append(
+            f"• {'✅ مضبوط' if row['الحالة'] == '✅ مضبوط' else '❌ ناقص'} "
+            f"<code>{_esc(row['المفتاح'])}</code> — {_esc(row['الوظيفة'])}"
+        )
     lines.extend(["", "<b>جاهزية التكاملات (كل المتطلبات معًا)</b>"])
     for integration, ready, missing in _integration_readiness(settings):
         status = "✅ جاهز" if ready else ("⚪ غير مهيأ" if len(missing) == 0 else "⚠️ ناقص")

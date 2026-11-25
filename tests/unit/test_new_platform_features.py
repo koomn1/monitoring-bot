@@ -540,7 +540,7 @@ def test_cmd_button_uses_token_when_over_64_bytes():
 
 
 @pytest.mark.asyncio
-async def test_cmd_users_renders_table_with_points_and_status():
+async def test_cmd_users_renders_rtl_cards_with_points_and_status():
     import bot.db.repositories.platform_repo as _plat_repo
     from bot.modules.users import service as users_service
 
@@ -553,7 +553,7 @@ async def test_cmd_users_renders_table_with_points_and_status():
          patch.object(_plat_repo, "list_users_table", new=AsyncMock(return_value=table_rows)):
         from bot.modules.telegram_commands.handlers import handle_users
         out = await handle_users(_ctx("users"))
-    assert "<pre>" in out
+    assert "<pre>" not in out
     assert "أحمد" in out
     assert "موقوف" in out
     assert "450" in out
