@@ -112,7 +112,9 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         text = await handler(ctx)
         return text, keyboards.buttons_for(ctx.command, ctx.args)
     except ConfirmationRequiredError as e:
-        buttons = keyboards.confirmation_buttons(e.command, e.extra_args)
+        buttons = keyboards.confirmation_buttons(
+            e.command, e.extra_args, user_id=ctx.user_id, chat_id=ctx.chat_id
+        )
         return f"⚠️ {e}", buttons
     except ExternalServiceError as e:
         logger.error("External service error handling /%s: %s", ctx.command, e)
