@@ -2102,6 +2102,7 @@ async def handle_notify(ctx: CommandContext) -> str:
     return (
         "📢 <b>تم إرسال الإشعار داخل الموقع</b>\n"
         f"• المستهدف: {_esc(result['target_label'])}\n"
+        f"• عدد المستلمين: <b>{result.get('recipients_count', 1)}</b>\n"
         f"• العنوان: <b>{_esc(result['title'])}</b>\n"
         f"• النص: {_esc(result['body'], 200)}"
     )

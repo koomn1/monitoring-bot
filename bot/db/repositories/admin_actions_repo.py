@@ -795,9 +795,10 @@ async def send_platform_notification(
     notif_type: str = "system",
     sender_name: str = "إدارة Quiz Space",
 ) -> dict[str, Any]:
+    is_broadcast = target_identifier.strip().lower() in ("all", "الكل", "*")
     user_id: str | None = None
     target_label = "جميع المستخدمين"
-    if target_identifier.strip().lower() not in ("all", "الكل", "*"):
+    if not is_broadcast:
         user = await resolve_user(target_identifier)
         if not user:
             raise ValueError(f"لم يتم العثور على المستخدم '{target_identifier}'.")
@@ -807,25 +808,68 @@ async def send_platform_notification(
     if notif_type not in ("info", "community", "system", "promotion"):
         notif_type = "system"
 
-    notif_id = str(uuid.uuid4())
     now_iso = _now_iso()
-    payload = {
-        "id": notif_id,
-        "user_id": user_id,
-        "type": notif_type,
-        "title": title.strip()[:120],
-        "body": body.strip()[:1000],
-        "sender_name": sender_name,
-        "is_read": False,
-        "created_at": now_iso,
-    }
-    target_db().table("notifications").insert(payload).execute()
+    title_value = title.strip()[:120]
+    body_value = body.strip()[:1000]
+
+    if is_broadcast:
+        # Quiz Space reads notifications by user_id. A NULL user_id is not a
+        # global notification in the client and therefore appears to succeed
+        # while remaining invisible to every user. Insert one row per account,
+        # matching the broadcast_platform_notification RPC contract.
+        users: list[dict[str, Any]] = []
+        offset = 0
+        page_size = 1000
+        while True:
+            page = (
+                target_db()
+                .table("users")
+                .select("uid")
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            rows = [row for row in (page.data or []) if row.get("uid")]
+            users.extend(rows)
+            if len(rows) < page_size:
+                break
+            offset += page_size
+        payloads = [
+            {
+                "id": f"notif-system-{uuid.uuid4()}",
+                "user_id": row["uid"],
+                "type": notif_type,
+                "title": title_value,
+                "body": body_value,
+                "sender_name": sender_name,
+                "is_read": False,
+                "created_at": now_iso,
+            }
+            for row in users
+        ]
+        notifications = target_db().table("notifications")
+        for start in range(0, len(payloads), 500):
+            batch = payloads[start : start + 500]
+            if batch:
+                notifications.insert(batch).execute()
+    else:
+        payload = {
+            "id": f"notif-system-{uuid.uuid4()}",
+            "user_id": user_id,
+            "type": notif_type,
+            "title": title_value,
+            "body": body_value,
+            "sender_name": sender_name,
+            "is_read": False,
+            "created_at": now_iso,
+        }
+        target_db().table("notifications").insert(payload).execute()
     return {
-        "id": notif_id,
+        "id": payloads[0]["id"] if is_broadcast and payloads else None,
         "target_label": target_label,
         "user_id": user_id,
-        "title": payload["title"],
-        "body": payload["body"],
+        "title": title_value,
+        "body": body_value,
+        "recipients_count": len(payloads) if is_broadcast else 1,
     }
 
 

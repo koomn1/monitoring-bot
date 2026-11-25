@@ -508,7 +508,32 @@ async def test_edit_user_plan_notify_delete_quiz_require_confirmation():
 
     with pytest.raises(ConfirmationRequiredError) as e4:
         await admin_actions.delete_quiz("quiz-123", confirmed=False)
-    assert e4.value.command == "deletequiz"
+        assert e4.value.command == "deletequiz"
+
+
+@pytest.mark.asyncio
+async def test_platform_notification_broadcast_targets_each_user():
+    from bot.db.repositories import admin_actions_repo
+
+    users_query = MagicMock()
+    users_query.select.return_value.range.return_value.execute.return_value = _supabase_result(
+        [{"uid": "user-1"}, {"uid": "user-2"}]
+    )
+    notifications_table = MagicMock()
+    mock_client = MagicMock()
+    mock_client.table.side_effect = lambda name: (
+        users_query if name == "users" else notifications_table
+    )
+
+    with patch.object(admin_actions_repo, "target_db", return_value=mock_client):
+        result = await admin_actions_repo.send_platform_notification(
+            target_identifier="all", title="صيانة", body="تحديث قريب"
+        )
+
+    inserted = notifications_table.insert.call_args.args[0]
+    assert [row["user_id"] for row in inserted] == ["user-1", "user-2"]
+    assert all(row["user_id"] is not None for row in inserted)
+    assert result["recipients_count"] == 2
 
 
 # ---------------------------------------------------------------------------
