@@ -483,7 +483,7 @@ async def test_cmd_plans_and_quizzes():
         from bot.modules.telegram_commands.handlers import handle_plans, handle_quizzes
         plans_out = await handle_plans(_ctx("plans"))
         quizzes_out = await handle_quizzes(_ctx("quizzes"))
-    assert "Gold Plan" in plans_out
+    assert "الباقة الذهبية" in plans_out
     assert "99 EGP" in plans_out
     assert "Arabic Grammar" in quizzes_out
     assert "42 تشغيل" in quizzes_out
@@ -509,3 +509,51 @@ async def test_edit_user_plan_notify_delete_quiz_require_confirmation():
     with pytest.raises(ConfirmationRequiredError) as e4:
         await admin_actions.delete_quiz("quiz-123", confirmed=False)
     assert e4.value.command == "deletequiz"
+
+
+# ---------------------------------------------------------------------------
+# 22. Back button & cmd_button token handling & users table
+# ---------------------------------------------------------------------------
+
+def test_every_non_menu_screen_has_back_to_menu_button():
+    from bot.utils import keyboards
+
+    keyboards.clear_reply_buttons()
+    kb = keyboards.buttons_for("status", [])
+    flat = [btn for row in (kb or []) for btn in row]
+    assert any(btn["callback_data"] == "cmd|start" and "القائمة الرئيسية" in btn["text"] for btn in flat)
+
+    kb_mut = keyboards.buttons_for("user", ["u1"])
+    flat_mut = [btn for row in (kb_mut or []) for btn in row]
+    assert any(btn["callback_data"] == "cmd|start" for btn in flat_mut)
+
+
+def test_cmd_button_uses_token_when_over_64_bytes():
+    from bot.utils.keyboards import cmd_button, resolve_command_token
+
+    long_uid = "user_" + "x" * 70
+    btn = cmd_button("إيقاف", "suspend", [long_uid, "on"])
+    assert len(btn["callback_data"].encode("utf-8")) <= 64
+    assert btn["callback_data"].startswith("cmd_tok|")
+    token = btn["callback_data"].split("|", 1)[1]
+    assert resolve_command_token(token) == ("suspend", [long_uid, "on"])
+
+
+@pytest.mark.asyncio
+async def test_cmd_users_renders_table_with_points_and_status():
+    import bot.db.repositories.platform_repo as _plat_repo
+    from bot.modules.users import service as users_service
+
+    summary = {"total_users": 2, "premium_users": 1, "recent_signups": [], "signups_24h": 1, "signups_7d": 2, "suspended_users": 1}
+    table_rows = [
+        {"uid": "uid_11112222", "name": "أحمد", "custom_id": None, "is_premium": True, "plan_name": "Gold", "is_suspended": False, "reward_points": 450},
+        {"uid": "uid_33334444", "name": "سارة", "custom_id": None, "is_premium": False, "plan_name": None, "is_suspended": True, "reward_points": 20},
+    ]
+    with patch.object(users_service, "get_user_summary", new=AsyncMock(return_value=summary)), \
+         patch.object(_plat_repo, "list_users_table", new=AsyncMock(return_value=table_rows)):
+        from bot.modules.telegram_commands.handlers import handle_users
+        out = await handle_users(_ctx("users"))
+    assert "<pre>" in out
+    assert "أحمد" in out
+    assert "موقوف" in out
+    assert "450" in out

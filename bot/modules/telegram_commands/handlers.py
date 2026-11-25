@@ -18,7 +18,8 @@ from typing import Any
 
 from bot.core.exceptions import ConfigurationError
 from bot.core.router import CommandContext, command, registered_commands
-from bot.utils.formatting import status_line
+from bot.utils.formatting import format_table, status_line
+from bot.utils.keyboards import cmd_button, set_reply_buttons
 from bot.utils.style import title
 from bot.utils.time_utils import humanize_delta
 
@@ -456,31 +457,55 @@ async def handle_payments(ctx: CommandContext) -> str:
     items = detailed if detailed else (summary.get("pending_items") or [])
 
     lines = [
-        f"💳 <b>طابور الاشتراكات والمدفوعات ({'الكل حديثاً' if show_all else 'المعلّقة'})</b>",
+        f"💳 <b>طابور الاشتراكات وطرق الدفع ({'الكل حديثاً' if show_all else 'المعلّقة'})</b>",
         f"• قيد المراجعة: {_fmt(pending_count)} | تحتاج بيانات: {_fmt(needs_info)}",
         f"• قرارات آخر 7 أيام: ✅ {_fmt(approved_7d)} مقبول | ❌ {_fmt(rejected_7d)} مرفوض",
     ]
     if items:
-        lines.append("")
-        lines.append("<b>الطلبات</b>")
+        table_rows = []
+        action_rows = []
+        notes: list[str] = []
         for req in items:
             req_id = str(req.get("id") or "")
             short_id = req_id[:8]
-            plan = _esc(req.get("plan_name") or "غير محدد", 40)
-            req_status = _esc(req.get("status") or "pending", 20)
-            who = _esc(req.get("name") or req.get("user_id") or "مستخدم", 32)
-            email = req.get("email")
-            email_txt = f" &lt;{_esc(email, 45)}&gt;" if email else ""
+            plan = str(req.get("plan_name") or "غير محدد")
+            req_status = str(req.get("status") or "pending")
+            who = str(req.get("name") or req.get("user_id") or "مستخدم")
             shot = str(req.get("payment_screenshot") or "").strip()
-            proof_tag = " [تجريبي]" if shot.startswith("TRIAL_OFFER_") else (" [إيصال مرفق]" if shot else "")
-            lines.append(
-                f"• <code>{_esc(short_id)}</code> — {who}{email_txt}\n"
-                f"  الباقة: {plan} | الحالة: {req_status}{proof_tag} ({_age(req.get('created_at'))})"
+            pay_label = "تجريبي" if shot.startswith("TRIAL_OFFER_") else ("إيصال" if shot else "تحويل")
+            table_rows.append(
+                {
+                    "المعرف": short_id,
+                    "المستخدم": who,
+                    "الباقة": plan,
+                    "الدفع": pay_label,
+                    "الحالة": req_status,
+                }
             )
             if req.get("reject_reason"):
-                lines.append(f"  السبب: {_esc(req.get('reject_reason'), 80)}")
+                notes.append(f"• <code>{_esc(short_id)}</code>: {_esc(req.get('reject_reason'), 80)}")
+            if req_status in ("pending", "needs_info") and len(action_rows) < 3:
+                action_rows.append(
+                    [
+                        cmd_button(f"✅ قبول #{short_id}", "approve", [req_id]),
+                        cmd_button(f"❌ رفض #{short_id}", "reject", [req_id]),
+                    ]
+                )
+
         lines.append("")
+        lines.append(format_table(table_rows, ["المعرف", "المستخدم", "الباقة", "الدفع", "الحالة"], max_col_width=14))
+        if notes:
+            lines.append("<b>أسباب الرفض:</b>")
+            lines.extend(notes[:5])
         lines.append("الإجراءات: <code>/approve &lt;id&gt;</code> | <code>/reject &lt;id&gt; [السبب]</code>")
+
+        action_rows.append(
+            [
+                cmd_button("⏳ المعلّقة", "payments"),
+                cmd_button("📋 الكل", "payments", ["all"]),
+            ]
+        )
+        set_reply_buttons(action_rows)
     else:
         lines.append("\n✅ لا توجد طلبات دفع معلّقة.")
 
@@ -625,21 +650,26 @@ async def handle_points(ctx: CommandContext) -> str:
     overview = await admin_actions.get_points_overview(limit=10)
     top_bal = overview.get("top_balances") or []
     recent_led = overview.get("recent_ledger") or []
-    lines = ["🏆 <b>ملخص النقاط والمكافآت</b>", ""]
+    lines = ["🏆 <b>جدول النقاط والمكافآت</b>", ""]
     if top_bal:
-        lines.append("<b>أعلى الأرصدة</b>")
-        for idx, row in enumerate(top_bal, start=1):
-            lines.append(
-                f"{idx}. {_esc(row.get('display_name'), 28)} (<code>{_esc(str(row.get('user_id', ''))[:8])}</code>) — "
-                f"{int(row.get('points') or 0):,} نقطة | {int(row.get('coins') or 0):,} عملة | مستوى {row.get('level', 1)}"
-            )
+        bal_rows = [
+            {
+                "#": idx,
+                "الاسم": row.get("display_name") or str(row.get("user_id", ""))[:8],
+                "النقاط": f"{int(row.get('points') or 0):,}",
+                "العملات": f"{int(row.get('coins') or 0):,}",
+                "المستوى": row.get("level", 1),
+            }
+            for idx, row in enumerate(top_bal, start=1)
+        ]
+        lines.append(format_table(bal_rows, ["#", "الاسم", "النقاط", "العملات", "المستوى"], max_col_width=14))
     else:
         lines.append("• لا توجد أرصدة نقاط مسجلة بعد.")
 
     if recent_led:
         lines.append("")
         lines.append("<b>أحدث معاملات النقاط</b>")
-        for entry in recent_led[:8]:
+        for entry in recent_led[:6]:
             pts = int(entry.get("points") or 0)
             sign = "+" if pts >= 0 else ""
             lines.append(
@@ -687,21 +717,44 @@ async def handle_orders(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
     orders = await admin_actions.list_reward_orders(limit=15)
-    lines = ["🎁 <b>طلبات متجر المكافآت</b>", ""]
+    lines = ["🎁 <b>جدول طلبات متجر المكافآت</b>", ""]
     if not orders:
         lines.append("✅ لا توجد طلبات في متجر المكافآت.")
         return "\n".join(lines)
 
+    table_rows = []
+    action_rows = []
+    refs: list[str] = []
     for order in orders:
         oid = str(order.get("id") or "")
-        lines.append(
-            f"• <code>{_esc(oid[:8])}</code> — الصنف={_esc(order.get('item_id'))} | "
-            f"الحالة=<b>{_esc(order.get('status'))}</b> | "
-            f"{order.get('amount_egp', 0)} ج.م / {order.get('amount_points', 0)} نقطة "
-            f"[{_esc(order.get('payment_method'))}] ({_age(order.get('created_at'))})"
+        short_id = oid[:8]
+        status_val = str(order.get("status") or "pending")
+        amt = f"{order.get('amount_egp', 0)}ج/{order.get('amount_points', 0)}ن"
+        table_rows.append(
+            {
+                "الطلب": short_id,
+                "الصنف": order.get("item_id") or "-",
+                "القيمة": amt,
+                "الدفع": order.get("payment_method") or "-",
+                "الحالة": status_val,
+            }
         )
         if order.get("payment_reference"):
-            lines.append(f"  المرجع: <code>{_esc(order.get('payment_reference'), 60)}</code>")
+            refs.append(f"• <code>{_esc(short_id)}</code>: <code>{_esc(order.get('payment_reference'), 60)}</code>")
+        if status_val == "pending" and len(action_rows) < 3:
+            action_rows.append(
+                [
+                    cmd_button(f"✅ قبول #{short_id}", "approveorder", [oid]),
+                    cmd_button(f"❌ رفض #{short_id}", "rejectorder", [oid]),
+                ]
+            )
+
+    lines.append(format_table(table_rows, ["الطلب", "الصنف", "القيمة", "الدفع", "الحالة"], max_col_width=13))
+    if refs:
+        lines.append("<b>مراجع الدفع:</b>")
+        lines.extend(refs[:5])
+    if action_rows:
+        set_reply_buttons(action_rows)
     lines.append("\nالإجراءات: <code>/approveorder &lt;id&gt;</code> | <code>/rejectorder &lt;id&gt; [ملاحظة]</code>")
     return "\n".join(lines)
 
@@ -798,7 +851,12 @@ async def handle_incidents(ctx: CommandContext) -> str:
 
 @command("users")
 async def handle_users(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
     from bot.modules.users import service as users_service
+
+    filter_mode = "all"
+    if ctx.args and ctx.args[0].lower() in ("premium", "suspended", "all"):
+        filter_mode = ctx.args[0].lower()
 
     summary = await users_service.get_user_summary()
     total = summary.get("total_users", 0)
@@ -806,11 +864,10 @@ async def handle_users(ctx: CommandContext) -> str:
     pct = f"{(premium / total) * 100:.1f}%" if total else "0.0%"
     recent = summary.get("recent_signups") or []
 
+    filter_labels = {"all": "الكل", "premium": "البريميوم", "suspended": "الموقوفون"}
     lines = [
-        title("المستخدمون", "users"),
-        f"الإجمالي: {total}",
-        f"البريميوم: {premium} ({pct})",
-        f"أحدث المسجلين: {len(recent)}",
+        title(f"جدول المستخدمين ({filter_labels[filter_mode]})", "users"),
+        f"الإجمالي: {total} | البريميوم: {premium} ({pct}) | أحدث المسجلين: {len(recent)}",
     ]
 
     extra_parts = []
@@ -827,14 +884,29 @@ async def handle_users(ctx: CommandContext) -> str:
     if extra_parts:
         lines.append(" | ".join(extra_parts))
 
-    if recent:
+    table_source = await platform_repo.list_users_table(filter_mode=filter_mode, limit=12)
+    if not table_source and recent:
+        table_source = recent[:10]
+
+    if table_source:
+        table_rows = []
+        for u in table_source:
+            uid_full = str(u.get("uid") or "")
+            plan_txt = str(u.get("plan_name") or ("بريميوم" if u.get("is_premium") else "مجاني"))
+            status_txt = "موقوف" if u.get("is_suspended") else "نشط"
+            pts_val = u.get("reward_points", u.get("xp", 0))
+            table_rows.append(
+                {
+                    "ID": uid_full[:8],
+                    "الاسم": u.get("name") or u.get("custom_id") or uid_full[:8],
+                    "الباقة": plan_txt,
+                    "الحالة": status_txt,
+                    "النقاط": f"{int(pts_val or 0):,}",
+                }
+            )
         lines.append("")
-        lines.append("<b>أحدث المسجلين</b>")
-        for u in recent[:5]:
-            uid_short = str(u.get("uid") or "")[:8]
-            display_name = _esc(u.get("name") or uid_short or "مستخدم", 32)
-            tier = "⭐ بريميوم" if u.get("is_premium") else "مجاني"
-            lines.append(f"• {display_name} ({_esc(uid_short)}) — {tier} ({_age(u.get('created_at'))})")
+        lines.append(format_table(table_rows, ["ID", "الاسم", "الباقة", "الحالة", "النقاط"], max_col_width=13))
+        lines.append("لعرض وتعديل مستخدم: <code>/user &lt;uid_or_email&gt;</code>")
 
     return "\n".join(lines)
 
@@ -922,6 +994,30 @@ async def handle_user(ctx: CommandContext) -> str:
             f"• إيقاف: <code>/suspend {_esc(u.get('uid'))} &lt;on|off&gt;</code>",
         ]
     )
+
+    uid_val = str(u.get("uid") or "")
+    if uid_val:
+        is_susp = bool(u.get("is_suspended"))
+        susp_btn = (
+            cmd_button("✅ تفعيل الحساب", "suspend", [uid_val, "off"])
+            if is_susp
+            else cmd_button("🚫 إيقاف الحساب", "suspend", [uid_val, "on"])
+        )
+        set_reply_buttons(
+            [
+                [
+                    susp_btn,
+                    cmd_button("⭐ باقة Gold", "membership", [uid_val, "gold", "30"]),
+                    cmd_button("💎 باقة Diamond", "membership", [uid_val, "diamond", "365"]),
+                ],
+                [
+                    cmd_button("🏆 +100 نقطة", "grantpoints", [uid_val, "100"]),
+                    cmd_button("🏆 +500 نقطة", "grantpoints", [uid_val, "500"]),
+                    cmd_button("➖ -100 نقطة", "grantpoints", [uid_val, "-100"]),
+                ],
+            ]
+        )
+
     return "\n".join(lines)
 
 
@@ -1498,20 +1594,21 @@ async def handle_coupon(ctx: CommandContext) -> str:
         coupons = await admin_actions.list_coupons(limit=20)
         if not coupons:
             return "🎟️ <b>كوبونات الخصم</b>\n• لا توجد كوبونات."
-        lines = ["🎟️ <b>كوبونات الخصم</b>", ""]
+        lines = ["🎟️ <b>جدول كوبونات الخصم</b>", ""]
+        c_rows = []
         for c in coupons:
-            active_icon = "✅" if c.get("is_active") else "❌"
             used = c.get("used_count", 0)
             max_u = c.get("max_uses", 0)
-            uses_txt = f"{used}/{max_u}" if max_u else f"{used}/∞"
-            exp = c.get("expiry_date")
-            exp_txt = f" | ينتهي {_age(exp)}" if exp else ""
-            plans = c.get("applicable_plans") or "الكل"
-            lines.append(
-                f"{active_icon} <code>{_esc(c.get('code'))}</code> — "
-                f"خصم {c.get('discount_percent', 0)}% | الاستخدام: {uses_txt}{exp_txt}\n"
-                f"  ID: <code>{_esc(c.get('id'))}</code> | الباقات: {_esc(plans, 50)}"
+            c_rows.append(
+                {
+                    "ID": str(c.get("id") or ""),
+                    "الكود": str(c.get("code") or ""),
+                    "الخصم": f"{c.get('discount_percent', 0)}%",
+                    "الاستخدام": f"{used}/{max_u}" if max_u else f"{used}/∞",
+                    "الحالة": "نشط" if c.get("is_active") else "متوقف",
+                }
             )
+        lines.append(format_table(c_rows, ["ID", "الكود", "الخصم", "الاستخدام", "الحالة"], max_col_width=13))
         lines.append(
             "\nإنشاء: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
             "تبديل: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
@@ -1621,27 +1718,36 @@ async def handle_topusers(ctx: CommandContext) -> str:
 
     if mode in ("points", "pts", "rewards"):
         rows = await platform_repo.get_top_users_by_points(limit=limit)
-        lines = ["🏆 <b>أعلى المستخدمين — نقاط المكافآت</b>", ""]
+        lines = ["🏆 <b>جدول المتصدرين — نقاط المكافآت</b>", ""]
         if not rows:
             return lines[0] + "\n• لا توجد بيانات متاحة."
-        for idx, row in enumerate(rows, 1):
-            name = _esc(row.get("display_name", str(row.get("user_id", ""))[:8]), 30)
-            pts = int(row.get("points") or 0)
-            lvl = row.get("level", 1)
-            lines.append(f"{idx}. {name} — <b>{pts:,}</b> نقطة | المستوى {lvl}")
+        t_rows = [
+            {
+                "#": idx,
+                "الاسم": row.get("display_name", str(row.get("user_id", ""))[:8]),
+                "النقاط": f"{int(row.get('points') or 0):,}",
+                "المستوى": row.get("level", 1),
+            }
+            for idx, row in enumerate(rows, 1)
+        ]
+        lines.append(format_table(t_rows, ["#", "الاسم", "النقاط", "المستوى"], max_col_width=16))
         lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
         return "\n".join(lines)
 
     rows = await platform_repo.get_top_users_by_xp(limit=limit)
-    lines = ["🏆 <b>أعلى المستخدمين — نقاط الخبرة XP</b>", ""]
+    lines = ["🏆 <b>جدول المتصدرين — نقاط الخبرة XP</b>", ""]
     if not rows:
         return lines[0] + "\n• لا توجد بيانات متاحة."
-    for idx, row in enumerate(rows, 1):
-        name = _esc(row.get("name") or row.get("custom_id") or str(row.get("uid", ""))[:8], 30)
-        xp = int(row.get("xp") or 0)
-        lvl = row.get("level", 1)
-        tier = "⭐" if row.get("is_premium") else "·"
-        lines.append(f"{idx}. {tier} {name} — <b>{xp:,}</b> XP | المستوى {lvl}")
+    t_rows = [
+        {
+            "#": idx,
+            "الاسم": ("⭐ " if row.get("is_premium") else "") + str(row.get("name") or row.get("custom_id") or str(row.get("uid", ""))[:8]),
+            "XP": f"{int(row.get('xp') or 0):,}",
+            "المستوى": row.get("level", 1),
+        }
+        for idx, row in enumerate(rows, 1)
+    ]
+    lines.append(format_table(t_rows, ["#", "الاسم", "XP", "المستوى"], max_col_width=16))
     lines.append("\nالترتيب: <code>/topusers xp</code> | <code>/topusers points</code>")
     return "\n".join(lines)
 
@@ -1679,15 +1785,20 @@ async def handle_plans(ctx: CommandContext) -> str:
     plans = await platform_repo.list_subscription_plans()
     if not plans:
         return "💎 <b>باقات الاشتراك</b>\n• لا توجد باقات مسجلة."
-    lines = ["💎 <b>باقات الاشتراك في الموقع</b>", ""]
+    lines = ["💎 <b>جدول باقات الاشتراك في الموقع</b>", ""]
+    p_rows = []
     for p in plans:
-        active_icon = "✅" if p.get("is_active") else "❌"
-        dur = "مدى الحياة" if p.get("is_lifetime") else f"{p.get('duration_months', 1)} شهر"
-        ar_name = f" ({_esc(p.get('name_ar'))})" if p.get("name_ar") else ""
-        lines.append(
-            f"{active_icon} <code>{_esc(p.get('id'))}</code> — <b>{_esc(p.get('name'))}</b>{ar_name}\n"
-            f"  السعر: <b>{p.get('price', 0)} {p.get('currency', 'EGP')}</b> | المدة: {dur} | الشارة: {_esc(p.get('badge_style'))}"
+        dur = "مدى الحياة" if p.get("is_lifetime") else f"{p.get('duration_months', 1)}ش"
+        p_rows.append(
+            {
+                "ID": str(p.get("id") or ""),
+                "الباقة": p.get("name_ar") or p.get("name") or "-",
+                "السعر": f"{p.get('price', 0)} {p.get('currency', 'EGP')}",
+                "المدة": dur,
+                "الحالة": "نشط" if p.get("is_active") else "متوقف",
+            }
         )
+    lines.append(format_table(p_rows, ["ID", "الباقة", "السعر", "المدة", "الحالة"], max_col_width=14))
     lines.append("\nلتعديل باقة: <code>/editplan &lt;plan_id&gt; &lt;price|name|name_ar|duration_months|is_active&gt; &lt;value&gt;</code>")
     return "\n".join(lines)
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+
 STATUS_EMOJI = {"up": "🟢", "down": "🔴", "degraded": "🟡", "unknown": "⚪"}
 STATUS_AR = {
     "up": "يعمل",
@@ -26,10 +28,22 @@ def format_duration_ms(ms: int) -> str:
     return f"{ms / 1000:.2f}s"
 
 
-def format_table(rows: list[dict], columns: list[str]) -> str:
-    """Renders a simple monospace table for Telegram (wrapped in <pre>)."""
-    widths = [max(len(str(r.get(c, ""))) for r in [dict(zip(columns, columns))] + rows) for c in columns]
-    lines = ["  ".join(c.ljust(w) for c, w in zip(columns, widths))]
-    for r in rows:
-        lines.append("  ".join(str(r.get(c, "")).ljust(w) for c, w in zip(columns, widths)))
-    return "<pre>" + "\n".join(lines) + "</pre>"
+def format_table(rows: list[dict], columns: list[str], *, max_col_width: int = 18) -> str:
+    """Renders a clean monospace table for Telegram (HTML-escaped inside <pre>)."""
+    def _cell(val: object) -> str:
+        text = str(val if val is not None else "-").replace("\n", " ").strip()
+        if len(text) > max_col_width:
+            return text[: max_col_width - 1] + "…"
+        return text
+
+    str_rows = [{c: _cell(r.get(c)) for c in columns} for r in rows]
+    widths = [
+        max(len(c), *(len(r[c]) for r in str_rows)) if str_rows else len(c)
+        for c in columns
+    ]
+    header = " | ".join(c.ljust(w) for c, w in zip(columns, widths))
+    sep = "-+-".join("-" * w for w in widths)
+    lines = [header, sep]
+    for r in str_rows:
+        lines.append(" | ".join(r[c].ljust(w) for c, w in zip(columns, widths)))
+    return "<pre>" + html.escape("\n".join(lines), quote=False) + "</pre>"

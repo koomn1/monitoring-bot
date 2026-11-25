@@ -549,3 +549,44 @@ async def list_recent_quizzes(*, limit: int = 15) -> list[dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("Failed fetching quizzes: %s", exc)
         return []
+
+
+async def list_users_table(*, filter_mode: str = "all", limit: int = 12) -> list[dict[str, Any]]:
+    """Return users with their plan, suspension status, XP, and reward points."""
+    try:
+        query = (
+            target_db()
+            .table("users")
+            .select("uid,name,custom_id,is_premium,plan_name,is_suspended,is_lifetime,is_founder,xp,level,created_at")
+        )
+        if filter_mode == "premium":
+            query = query.eq("is_premium", True)
+        elif filter_mode == "suspended":
+            query = query.eq("is_suspended", True)
+        res = query.order("created_at", desc=True).limit(limit).execute()
+        rows = list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching users table: %s", exc)
+        return []
+
+    if not rows:
+        return []
+
+    uids = [r["uid"] for r in rows if r.get("uid")]
+    points_map: dict[str, int] = {}
+    try:
+        bal_res = (
+            target_db()
+            .table("user_reward_balances")
+            .select("user_id,points")
+            .in_("user_id", uids)
+            .execute()
+        )
+        for b in bal_res.data or []:
+            points_map[b["user_id"]] = int(b.get("points") or 0)
+    except Exception:  # noqa: BLE001
+        pass
+
+    for r in rows:
+        r["reward_points"] = points_map.get(r.get("uid", ""), 0)
+    return rows

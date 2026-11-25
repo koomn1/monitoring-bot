@@ -107,6 +107,7 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         logger.warning("Forbidden: user_id=%s tried /%s without sufficient role", ctx.user_id, ctx.command)
         return "🚫 ليس لديك صلاحية لتنفيذ هذا الأمر.", None
 
+    keyboards.clear_reply_buttons()
     try:
         text = await handler(ctx)
         return text, keyboards.buttons_for(ctx.command, ctx.args)

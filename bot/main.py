@@ -28,7 +28,7 @@ from bot.config import settings
 from bot.core import scheduler
 from bot.core.middleware import with_audit_log
 from bot.core.router import CommandContext, dispatch
-from bot.utils.keyboards import Keyboard, resolve_confirmation_token
+from bot.utils.keyboards import Keyboard, back_to_menu_buttons, resolve_command_token, resolve_confirmation_token
 
 # Populates the command registry — must be imported before the bot starts
 # receiving updates. See bot/modules/telegram_commands/handlers.py.
@@ -146,12 +146,29 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
     action, _, rest = query.data.partition("|")
 
     if action == "cancel":
-        await query.edit_message_text("🚫 تم الإلغاء — لم يتم إجراء أي تعديل.")
+        await query.edit_message_text(
+            "🚫 تم الإلغاء — لم يتم إجراء أي تعديل.",
+            reply_markup=_to_inline_markup(back_to_menu_buttons()),
+        )
         return
 
     if action == "cmd":
-        command_name = rest
-        args: list[str] = []
+        if "|" in rest:
+            command_name, _, args_csv = rest.partition("|")
+            args = [a for a in args_csv.split(",") if a] if args_csv else []
+        else:
+            command_name = rest
+            args = []
+    elif action == "cmd_tok":
+        resolved_cmd = resolve_command_token(rest)
+        if resolved_cmd is None:
+            await query.edit_message_text(
+                "⚠️ انتهت صلاحية الزر — من فضلك أعد فتح القائمة.",
+                reply_markup=_to_inline_markup(back_to_menu_buttons()),
+            )
+            return
+        command_name, stored_cmd_args = resolved_cmd
+        args = list(stored_cmd_args)
     elif action == "confirm":
         command_name, _, args_csv = rest.partition("|")
         args = ([a for a in args_csv.split(",") if a] if args_csv else []) + ["confirm"]
