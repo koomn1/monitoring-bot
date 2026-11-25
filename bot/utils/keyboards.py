@@ -164,11 +164,13 @@ def back_to_menu_buttons(parent: str | None = None) -> Keyboard:
     return [[{"text": "🔙 القائمة الرئيسية", "callback_data": "cmd|start"}]]
 
 
-def refresh_button(command: str, args: list[str] | None = None) -> Keyboard:
+def refresh_button(
+    command: str, args: list[str] | None = None, parent: str | None = None
+) -> Keyboard:
     return [
         [
             cmd_button("🔄 تحديث", command, args),
-            {"text": "🔙 القائمة الرئيسية", "callback_data": "cmd|start"},
+            *back_to_menu_buttons(parent)[0],
         ]
     ]
 
@@ -210,6 +212,41 @@ _SECTION_COMMANDS = {
     "operations",
     "security_center",
 }
+_PARENT_COMMANDS = {
+    "status": "monitor",
+    "dashboard": "monitor",
+    "pulse": "monitor",
+    "incidents": "monitor",
+    "users": "people",
+    "user": "people",
+    "points": "people",
+    "orders": "commerce",
+    "payments": "commerce",
+    "plans": "commerce",
+    "coupon": "commerce",
+    "trial": "commerce",
+    "quizzes": "content",
+    "vitals": "content",
+    "ai": "content",
+    "reports": "content",
+    "platform": "platform_admin",
+    "settings": "platform_admin",
+    "notify": "platform_admin",
+    "analytics": "platform_admin",
+    "deploy": "operations",
+    "build": "operations",
+    "backup": "operations",
+    "database": "operations",
+    "storage": "operations",
+    "rollback": "operations",
+    "restart": "operations",
+    "security": "security_center",
+    "logs": "security_center",
+    "errors": "security_center",
+    "envcheck": "security_center",
+    "secrets": "security_center",
+    "setrole": "security_center",
+}
 
 
 def _default_filter_rows(command: str) -> Keyboard:
@@ -236,12 +273,13 @@ def buttons_for(command: str, args: list[str]) -> Keyboard | None:
     if command in _MENU_COMMANDS:
         return main_menu_buttons()
     rows: Keyboard = list(_REPLY_EXTRA_BUTTONS.get() or [])
+    parent = _BUTTON_PARENT.get() or _PARENT_COMMANDS.get(command)
     if not rows:
         rows.extend(_default_filter_rows(command))
     if command in _REFRESHABLE:
-        rows.extend(refresh_button(command, args))
+        rows.extend(refresh_button(command, args, parent))
     elif command in _SECTION_COMMANDS:
-        rows.append([{"text": "🏠 القائمة الرئيسية", "callback_data": "cmd|start"}])
+        rows.extend(back_to_menu_buttons(parent))
     else:
-        rows.extend(back_to_menu_buttons(_BUTTON_PARENT.get()))
+        rows.extend(back_to_menu_buttons(parent))
     return rows

@@ -30,7 +30,7 @@ def test_section_result_keeps_navigation_home():
     keyboard = buttons_for("people", [])
 
     assert keyboard is not None
-    assert keyboard[-1] == [{"text": "🏠 القائمة الرئيسية", "callback_data": "cmd|start"}]
+    assert keyboard[-1] == [{"text": "🔙 القائمة الرئيسية", "callback_data": "cmd|start"}]
 
 
 def test_new_sections_fail_closed_with_explicit_roles():

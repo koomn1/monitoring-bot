@@ -540,17 +540,17 @@ async def test_platform_notification_broadcast_targets_each_user():
 # 22. Back button & cmd_button token handling & users table
 # ---------------------------------------------------------------------------
 
-def test_every_non_menu_screen_has_back_to_menu_button():
+def test_every_non_menu_screen_has_back_to_parent_button():
     from bot.utils import keyboards
 
     keyboards.clear_reply_buttons()
     kb = keyboards.buttons_for("status", [])
     flat = [btn for row in (kb or []) for btn in row]
-    assert any(btn["callback_data"] == "cmd|start" and "القائمة الرئيسية" in btn["text"] for btn in flat)
+    assert any(btn["callback_data"] == "cmd|monitor" and "رجوع" in btn["text"] for btn in flat)
 
     kb_mut = keyboards.buttons_for("user", ["u1"])
     flat_mut = [btn for row in (kb_mut or []) for btn in row]
-    assert any(btn["callback_data"] == "cmd|start" for btn in flat_mut)
+    assert any(btn["callback_data"] == "cmd|people" for btn in flat_mut)
 
 
 def test_cmd_button_uses_token_when_over_64_bytes():
