@@ -303,7 +303,9 @@ def test_long_confirmation_uses_short_token_within_64_bytes():
     from bot.utils.keyboards import confirmation_buttons, resolve_confirmation_token
 
     long_uid = "user-very-long-identifier-1234567890-abcdef"
-    kb = confirmation_buttons("grantpoints", [long_uid, "500", "reward for bug report"])
+    kb = confirmation_buttons(
+        "grantpoints", [long_uid, "500", "reward for bug report"], user_id=111, chat_id=222
+    )
     cb_data = kb[0][0]["callback_data"]
     assert len(cb_data.encode("utf-8")) <= 64
     assert cb_data.startswith("confirm_tok|")
