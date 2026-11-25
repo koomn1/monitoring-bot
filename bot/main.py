@@ -28,7 +28,15 @@ from bot.config import settings
 from bot.core import scheduler
 from bot.core.middleware import with_audit_log
 from bot.core.router import CommandContext, dispatch
-from bot.utils.keyboards import Keyboard, back_to_menu_buttons, resolve_command_token, resolve_confirmation_token
+from bot.utils.keyboards import (
+    Keyboard,
+    back_to_menu_buttons,
+    resolve_command_origin,
+    resolve_command_token,
+    resolve_confirmation_token,
+    set_button_origin,
+    set_button_parent,
+)
 
 # Populates the command registry — must be imported before the bot starts
 # receiving updates. See bot/modules/telegram_commands/handlers.py.
@@ -121,6 +129,8 @@ async def _telegram_command_entrypoint(update: Update, context: ContextTypes.DEF
         raw_text=text,
     )
 
+    set_button_parent(None)
+    set_button_origin(command_name)
     reply_text, buttons = await with_audit_log(ctx, dispatch)
     chunks = _split_telegram_text(reply_text)
     markup = _to_inline_markup(buttons)
@@ -145,6 +155,8 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
 
     action, _, rest = query.data.partition("|")
 
+    parent_command: str | None = None
+
     if action == "cancel":
         await query.edit_message_text(
             "🚫 تم الإلغاء — لم يتم إجراء أي تعديل.",
@@ -159,6 +171,10 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
         else:
             command_name = rest
             args = []
+    elif action == "cmdp":
+        parent_command, _, command_payload = rest.partition("|")
+        command_name, _, args_csv = command_payload.partition("|")
+        args = [a for a in args_csv.split(",") if a] if args_csv else []
     elif action == "cmd_tok":
         resolved_cmd = resolve_command_token(rest)
         if resolved_cmd is None:
@@ -167,6 +183,17 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
                 reply_markup=_to_inline_markup(back_to_menu_buttons()),
             )
             return
+        command_name, stored_cmd_args = resolved_cmd
+        args = list(stored_cmd_args)
+    elif action == "cmdp_tok":
+        resolved_cmd = resolve_command_token(rest)
+        if resolved_cmd is None:
+            await query.edit_message_text(
+                "⚠️ انتهت صلاحية الزر — من فضلك أعد فتح القائمة.",
+                reply_markup=_to_inline_markup(back_to_menu_buttons()),
+            )
+            return
+        parent_command = resolve_command_origin(rest)
         command_name, stored_cmd_args = resolved_cmd
         args = list(stored_cmd_args)
     elif action == "confirm_tok":
@@ -191,6 +218,8 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
         callback_data=query.data,
     )
 
+    set_button_parent(parent_command)
+    set_button_origin(command_name)
     reply_text, buttons = await with_audit_log(ctx, dispatch)
     chunks = _split_telegram_text(reply_text)
     markup = _to_inline_markup(buttons)
