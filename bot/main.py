@@ -169,11 +169,10 @@ async def _telegram_callback_entrypoint(update: Update, context: ContextTypes.DE
             return
         command_name, stored_cmd_args = resolved_cmd
         args = list(stored_cmd_args)
-    elif action == "confirm":
-        command_name, _, args_csv = rest.partition("|")
-        args = ([a for a in args_csv.split(",") if a] if args_csv else []) + ["confirm"]
     elif action == "confirm_tok":
-        resolved = resolve_confirmation_token(rest)
+        resolved = resolve_confirmation_token(
+            rest, user_id=query.from_user.id, chat_id=query.message.chat_id
+        )
         if resolved is None:
             await query.edit_message_text("⚠️ انتهت صلاحية التأكيد — من فضلك أعد إرسال الأمر.")
             return

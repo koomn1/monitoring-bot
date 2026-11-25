@@ -16,6 +16,7 @@ Callback data format (kept within Telegram's 64-byte cap):
 from __future__ import annotations
 
 import secrets
+import time
 from collections import OrderedDict
 from contextvars import ContextVar
 
@@ -24,7 +25,8 @@ Keyboard = list[list[Button]]
 
 _MAX_CALLBACK_BYTES = 64
 _MAX_PENDING_TOKENS = 200
-_PENDING_CONFIRMATIONS: OrderedDict[str, tuple[str, list[str]]] = OrderedDict()
+_CONFIRMATION_TTL_SECONDS = 300
+_PENDING_CONFIRMATIONS: OrderedDict[str, tuple[str, list[str], int, int, float]] = OrderedDict()
 _PENDING_COMMANDS: OrderedDict[str, tuple[str, list[str]]] = OrderedDict()
 _REPLY_EXTRA_BUTTONS: ContextVar[Keyboard | None] = ContextVar("_REPLY_EXTRA_BUTTONS", default=None)
 
@@ -37,9 +39,21 @@ def set_reply_buttons(buttons: Keyboard) -> None:
     _REPLY_EXTRA_BUTTONS.set(buttons)
 
 
-def resolve_confirmation_token(token: str) -> tuple[str, list[str]] | None:
-    """Pops and returns (command, extra_args) for a short confirmation token."""
-    return _PENDING_CONFIRMATIONS.pop(token, None)
+def resolve_confirmation_token(
+    token: str, *, user_id: int, chat_id: int
+) -> tuple[str, list[str]] | None:
+    """Resolve a one-time confirmation only for its initiating user and chat."""
+    pending = _PENDING_CONFIRMATIONS.get(token)
+    if pending is None:
+        return None
+    command, args, owner_user_id, owner_chat_id, expires_at = pending
+    if time.monotonic() >= expires_at:
+        _PENDING_CONFIRMATIONS.pop(token, None)
+        return None
+    if owner_user_id != user_id or owner_chat_id != chat_id:
+        return None
+    _PENDING_CONFIRMATIONS.pop(token, None)
+    return command, args
 
 
 def resolve_command_token(token: str) -> tuple[str, list[str]] | None:
@@ -62,29 +76,30 @@ def cmd_button(text: str, command: str, extra_args: list[str] | None = None) -> 
     return {"text": text, "callback_data": f"cmd_tok|{token}"}
 
 
-def confirmation_buttons(command: str, extra_args: list[str] | None = None) -> Keyboard:
+def confirmation_buttons(
+    command: str,
+    extra_args: list[str] | None = None,
+    *,
+    user_id: int,
+    chat_id: int,
+) -> Keyboard:
+    """Create an opaque confirmation bound to its initiator and chat."""
     args = list(extra_args or [])
-    args_csv = ",".join(args)
-    direct_data = f"confirm|{command}|{args_csv}"
-    if len(direct_data.encode("utf-8")) <= _MAX_CALLBACK_BYTES:
-        confirm_cb = direct_data
-    else:
-        token = secrets.token_hex(6)
-        _PENDING_CONFIRMATIONS[token] = (command, args)
-        while len(_PENDING_CONFIRMATIONS) > _MAX_PENDING_TOKENS:
-            _PENDING_CONFIRMATIONS.popitem(last=False)
-        confirm_cb = f"confirm_tok|{token}"
+    token = secrets.token_urlsafe(18)
+    _PENDING_CONFIRMATIONS[token] = (
+        command,
+        args,
+        user_id,
+        chat_id,
+        time.monotonic() + _CONFIRMATION_TTL_SECONDS,
+    )
+    while len(_PENDING_CONFIRMATIONS) > _MAX_PENDING_TOKENS:
+        _PENDING_CONFIRMATIONS.popitem(last=False)
 
-    cancel_cb = f"cancel|{command}"
-    if len(cancel_cb.encode("utf-8")) > _MAX_CALLBACK_BYTES:
-        cancel_cb = "cancel|action"
-
-    return [
-        [
-            {"text": "✅ تأكيد", "callback_data": confirm_cb},
-            {"text": "❌ إلغاء", "callback_data": cancel_cb},
-        ]
-    ]
+    return [[
+        {"text": "✅ تأكيد", "callback_data": f"confirm_tok|{token}"},
+        {"text": "❌ إلغاء", "callback_data": f"cancel|{command}"},
+    ]]
 
 
 def main_menu_buttons() -> Keyboard:

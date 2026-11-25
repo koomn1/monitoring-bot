@@ -30,13 +30,18 @@ _REJECTED_STATUSES = {"rejected", "reject", "declined", "denied", "مرفوض", 
 
 
 def _verify_webhook_secret(provided: str | None) -> bool:
-    """Compare shared Supabase/GitHub secrets in constant time."""
-    if not settings.github_webhook_secret:
-        logger.warning("GITHUB_WEBHOOK_SECRET not configured — rejecting all GitHub webhooks")
+    """Verify the legacy shared-header contract in constant time."""
+    expected = settings.github_webhook_secret
+    return bool(expected and provided and hmac.compare_digest(provided, expected))
+
+
+def _verify_github_signature(raw_body: bytes, signature_header: str | None) -> bool:
+    """Verify GitHub's X-Hub-Signature-256 HMAC over the exact request body."""
+    secret = settings.github_webhook_secret
+    if not secret or not signature_header or not signature_header.startswith("sha256="):
         return False
-    if not provided:
-        return False
-    return hmac.compare_digest(provided.encode(), settings.github_webhook_secret.encode())
+    expected = "sha256=" + hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
 
 
 def _verify_supabase_webhook_secret(provided: str | None) -> bool:
@@ -52,10 +57,17 @@ def _verify_supabase_webhook_secret(provided: str | None) -> bool:
 @routes.post("/webhooks/github")
 async def github_webhook(request: web.Request) -> web.Response:
     raw_body = await request.read()
-    provided_secret = request.headers.get("X-Webhook-Secret")
-    if not _verify_webhook_secret(provided_secret):
-        logger.warning("Rejected GitHub webhook: invalid or missing X-Webhook-Secret")
-        return web.Response(status=401, text="invalid secret")
+    signature = request.headers.get("X-Hub-Signature-256")
+    legacy_secret = request.headers.get("X-Webhook-Secret")
+    if signature:
+        verified = _verify_github_signature(raw_body, signature)
+    else:
+        # Backward compatibility for non-GitHub internal senders. GitHub's
+        # native webhook delivery always uses X-Hub-Signature-256.
+        verified = _verify_webhook_secret(legacy_secret)
+    if not verified:
+        logger.warning("Rejected GitHub webhook: invalid or missing signature")
+        return web.Response(status=401, text="invalid signature")
 
     try:
         payload = json.loads(raw_body)
@@ -63,6 +75,41 @@ async def github_webhook(request: web.Request) -> web.Response:
         return web.Response(status=400, text="invalid JSON")
     if not isinstance(payload, dict):
         return web.Response(status=400, text="invalid payload")
+
+    github_event = request.headers.get("X-GitHub-Event")
+    if github_event == "ping":
+        return web.Response(status=200, text="pong")
+
+    if github_event == "workflow_run":
+        workflow_run = payload.get("workflow_run")
+        workflow_run = workflow_run if isinstance(workflow_run, dict) else {}
+        workflow_name = str(workflow_run.get("name") or "GitHub Actions")
+        conclusion = workflow_run.get("conclusion")
+        html_url = workflow_run.get("html_url")
+        if conclusion == "failure" and "deploy" in workflow_name.casefold():
+            await notifications_service.notify_deployment_failed(
+                workflow_name, str(html_url or "See GitHub Actions run for details.")
+            )
+        elif conclusion == "success" and "deploy" in workflow_name.casefold():
+            await notifications_service.notify_deployment_success(workflow_name)
+        else:
+            logger.info("GitHub workflow completed: %s (%s)", workflow_name, conclusion)
+        return web.Response(status=200, text="ok")
+
+    if github_event == "deployment_status":
+        deployment = payload.get("deployment")
+        deployment = deployment if isinstance(deployment, dict) else {}
+        deployment_status = payload.get("deployment_status")
+        deployment_status = deployment_status if isinstance(deployment_status, dict) else {}
+        state = deployment_status.get("state")
+        environment = str(deployment.get("environment") or "production")
+        if state == "success":
+            await notifications_service.notify_deployment_success(environment)
+        elif state in {"failure", "error"}:
+            await notifications_service.notify_deployment_failed(
+                environment, str(deployment_status.get("description") or "Deployment failed.")
+            )
+        return web.Response(status=200, text="ok")
 
     event = payload.get("event")
     if event == "deployment_success":

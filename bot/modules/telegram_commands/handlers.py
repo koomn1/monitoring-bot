@@ -1893,6 +1893,47 @@ async def handle_deletequiz(ctx: CommandContext) -> str:
     )
 
 
+def _integration_readiness(settings: Any) -> list[tuple[str, bool, list[str]]]:
+    """Return integration readiness using complete variable groups, never values."""
+    groups = [
+        ("Telegram", {"TELEGRAM_BOT_TOKEN": settings.telegram_bot_token}),
+        ("Supabase", {
+            "SUPABASE_URL": settings.supabase_url,
+            "SUPABASE_SERVICE_ROLE_KEY": settings.supabase_service_role_key,
+        }),
+        ("GitHub Actions", {
+            "GITHUB_TOKEN": settings.github_token,
+            "GITHUB_REPO": settings.github_repo,
+        }),
+        ("GitHub Webhook", {"GITHUB_WEBHOOK_SECRET": settings.github_webhook_secret}),
+        ("Cloudflare", {
+            "CLOUDFLARE_API_TOKEN": settings.cloudflare_api_token,
+            "CLOUDFLARE_ACCOUNT_ID": settings.cloudflare_account_id,
+            "CLOUDFLARE_PROJECT_NAME": settings.cloudflare_project_name,
+        }),
+        ("Sentry", {
+            "SENTRY_AUTH_TOKEN": settings.sentry_auth_token,
+            "SENTRY_ORG_SLUG": settings.sentry_org_slug,
+            "SENTRY_PROJECT_SLUG": settings.sentry_project_slug,
+        }),
+        ("Umami", {
+            "UMAMI_API_URL": settings.umami_api_url,
+            "UMAMI_API_KEY": settings.umami_api_key,
+            "UMAMI_WEBSITE_ID": settings.umami_website_id,
+        }),
+        ("Firebase", {
+            "FIREBASE_PROJECT_ID": settings.firebase_project_id,
+            "FIREBASE_SERVICE_ACCOUNT_JSON": settings.firebase_service_account_json,
+        }),
+        ("AI Assistant", {"AI_API_KEY": settings.ai_api_key}),
+    ]
+    return [
+        (name, all(bool(value) for value in variables.values()),
+         [key for key, value in variables.items() if not value])
+        for name, variables in groups
+    ]
+
+
 @command("envcheck")
 async def handle_envcheck(ctx: CommandContext) -> str:
     from bot.config import settings
@@ -1901,21 +1942,28 @@ async def handle_envcheck(ctx: CommandContext) -> str:
         ("TELEGRAM_BOT_TOKEN", bool(settings.telegram_bot_token), "إلزامي"),
         ("SUPABASE_URL", bool(settings.supabase_url), "إلزامي"),
         ("SUPABASE_SERVICE_ROLE_KEY", bool(settings.supabase_service_role_key), "إلزامي"),
-        ("OWNER_USER_IDS", bool(settings.owner_user_ids), "إلزامي"),
-        ("SUPABASE_WEBHOOK_SECRET", bool(settings.supabase_webhook_secret), "إشعارات الدفع"),
+        ("OWNER_USER_IDS", bool(settings.owner_user_ids or settings.admin_user_ids), "إلزامي (مالك أو مسؤول)"),
+        ("SUPABASE_WEBHOOK_SECRET", bool(settings.supabase_webhook_secret), "Webhook Supabase"),
         ("TELEGRAM_ADMIN_CHAT_ID", bool(settings.telegram_admin_chat_id), "قناة الإدارة"),
         ("TELEGRAM_ALERT_CHANNEL_ID", bool(settings.telegram_alert_channel_id), "قناة التنبيهات"),
+        ("TELEGRAM_ERROR_CHANNEL_ID", bool(settings.telegram_error_channel_id), "قناة الأخطاء"),
         ("AI_API_KEY", bool(settings.ai_api_key), f"الذكاء ({settings.ai_provider})"),
-        ("GITHUB_TOKEN", bool(settings.github_token), "النشر والنسخ"),
-        ("GITHUB_REPO", bool(settings.github_repo), "النشر والنسخ"),
-        ("GITHUB_WEBHOOK_SECRET", bool(settings.github_webhook_secret), "Webhook النشر"),
+        ("GITHUB_TOKEN", bool(settings.github_token), "GitHub Actions"),
+        ("GITHUB_REPO", bool(settings.github_repo), "GitHub Actions"),
+        ("GITHUB_WEBHOOK_SECRET", bool(settings.github_webhook_secret), "Webhook GitHub"),
         ("CLOUDFLARE_API_TOKEN", bool(settings.cloudflare_api_token), "Cloudflare"),
         ("CLOUDFLARE_ACCOUNT_ID", bool(settings.cloudflare_account_id), "Cloudflare"),
-        ("SENTRY_AUTH_TOKEN", bool(settings.sentry_auth_token), "أخطاء Sentry"),
+        ("CLOUDFLARE_PROJECT_NAME", bool(settings.cloudflare_project_name), "Cloudflare"),
+        ("SENTRY_AUTH_TOKEN", bool(settings.sentry_auth_token), "Sentry"),
+        ("SENTRY_ORG_SLUG", bool(settings.sentry_org_slug), "Sentry"),
+        ("SENTRY_PROJECT_SLUG", bool(settings.sentry_project_slug), "Sentry"),
         ("SENTRY_WEBHOOK_SECRET", bool(settings.sentry_webhook_secret), "Webhook Sentry"),
         ("API_BASE_URL", bool(settings.api_base_url), "فحص الـ API"),
-        ("UMAMI_API_KEY", bool(settings.umami_api_key), "إحصائيات Umami"),
+        ("UMAMI_API_URL", bool(settings.umami_api_url), "Umami"),
+        ("UMAMI_API_KEY", bool(settings.umami_api_key), "Umami"),
+        ("UMAMI_WEBSITE_ID", bool(settings.umami_website_id), "Umami"),
         ("FIREBASE_PROJECT_ID", bool(settings.firebase_project_id), "Firebase"),
+        ("FIREBASE_SERVICE_ACCOUNT_JSON", bool(settings.firebase_service_account_json), "Firebase"),
     ]
 
     rows = [
@@ -1935,6 +1983,12 @@ async def handle_envcheck(ctx: CommandContext) -> str:
         "",
         format_table(rows, ["المفتاح", "الحالة", "الوظيفة"], max_col_width=25),
     ]
+    lines.extend(["", "<b>جاهزية التكاملات (كل المتطلبات معًا)</b>"])
+    for integration, ready, missing in _integration_readiness(settings):
+        status = "✅ جاهز" if ready else ("⚪ غير مهيأ" if len(missing) == 0 else "⚠️ ناقص")
+        lines.append(f"• {integration}: {status}")
+        if missing:
+            lines.append(f"  <i>المتغيرات الناقصة: {', '.join(missing)}</i>")
     if missing_required:
         lines.append(f"⚠️ <b>مفاتيح إلزامية ناقصة:</b> {', '.join(missing_required)}")
     else:
