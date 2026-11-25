@@ -16,7 +16,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from bot.core.exceptions import ConfigurationError
+from bot.core.exceptions import ConfigurationError, ConfirmationRequiredError
 from bot.core.router import CommandContext, command, registered_commands
 from bot.utils.formatting import format_cards, status_line
 from bot.utils.keyboards import cmd_button, set_reply_buttons
@@ -169,6 +169,7 @@ async def handle_operations(ctx: CommandContext) -> str:
         [("🚀 النشر", "deploy", None), ("🔨 البناء", "build", None)],
         [("💾 النسخ الاحتياطي", "backup", None), ("🗄️ قاعدة البيانات", "database", None)],
         [("📦 التخزين", "storage", None), ("↩️ طريقة التراجع", "input_help", ["rollback"])],
+        [("♻️ إعادة تشغيل البوت", "restart", None)],
     ])
     return "🚀 <b>النشر والنسخ الاحتياطي</b>\n\nشغّل العمليات التشغيلية مع إبقاء التغييرات الحساسة خلف تأكيد."
 
@@ -1594,6 +1595,14 @@ async def handle_setrole(ctx: CommandContext) -> str:
     if role_str not in ("ADMIN", "VIEWER"):
         return "الدور يجب أن يكون ADMIN أو VIEWER. المالك يحدد عبر متغير البيئة OWNER_USER_IDS فقط."
 
+    confirmed = "confirm" in ctx.args
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "setrole",
+            f"تغيير صلاحية مستخدم Telegram {target_user_id} إلى {role_str}؟",
+            extra_args=[str(target_user_id), role_str],
+        )
+
     await set_role(target_user_id, role_str)
     return f"✅ المستخدم {target_user_id} أصبح الآن {role_str}."
 
@@ -1634,17 +1643,18 @@ async def handle_settings(ctx: CommandContext) -> str:
     from bot.db.repositories.config_repo import get_all_settings, set_setting
 
     known_keys_hint = ", ".join(_KNOWN_SETTINGS)
+    args = [a for a in ctx.args if a != "confirm"]
 
-    if not ctx.args:
+    if not args:
         settings_map = await get_all_settings()
         if not settings_map:
             return f"لا توجد إعدادات وقت تشغيل مهيأة بعد.\nالاستخدام: /settings <key> <value>\nالمفاتيح المتاحة: {known_keys_hint}"
         return "⚙️ <b>إعدادات البوت</b>\n" + "\n".join(f"{k}: {v}" for k, v in settings_map.items())
 
-    if len(ctx.args) < 2:
+    if len(args) < 2:
         return f"الاستخدام: /settings <key> <value>\nالمفاتيح المتاحة: {known_keys_hint}"
 
-    key, raw_value = ctx.args[0], " ".join(ctx.args[1:])
+    key, raw_value = args[0], " ".join(args[1:])
     if key not in _KNOWN_SETTINGS:
         return f"إعداد غير معروف '{_esc(key)}'.\nالمفاتيح المتاحة: {known_keys_hint}"
 
@@ -1653,8 +1663,30 @@ async def handle_settings(ctx: CommandContext) -> str:
     except ValueError as e:
         return f"قيمة غير صالحة لـ '{_esc(key)}': {e}"
 
+    confirmed = "confirm" in ctx.args
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "settings",
+            f"تغيير الإعداد {key} إلى {raw_value}؟",
+            extra_args=[key, raw_value],
+        )
+
     await set_setting(key, value)
     return f"⚙️ تم ضبط {key} إلى {value}."
+
+
+@command("restart")
+async def handle_restart(ctx: CommandContext) -> str:
+    """Request a graceful process restart only after explicit confirmation."""
+    if "confirm" not in ctx.args:
+        raise ConfirmationRequiredError(
+            "restart",
+            "هل تريد إعادة تشغيل البوت؟ سيتوقف مؤقتًا ثم يعيد مضيف التشغيل تشغيله.",
+        )
+    from bot.modules.runtime import service as runtime_service
+
+    await runtime_service.request_restart()
+    return "♻️ تم طلب إعادة تشغيل البوت. سيعود تلقائيًا بعد لحظات."
 
 
 # ---------------------------------------------------------------------------

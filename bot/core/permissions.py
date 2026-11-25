@@ -99,6 +99,7 @@ COMMAND_MIN_ROLE: dict[str, Role] = {
     "storage": Role.ADMIN,
     "deploy": Role.ADMIN,
     "build": Role.ADMIN,
+    "restart": Role.ADMIN,
     "rollback": Role.OWNER,
     "logs": Role.ADMIN,
     "errors": Role.ADMIN,
