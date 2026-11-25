@@ -32,11 +32,18 @@ from bot.db.repositories.users_repo import (
 )
 
 
-async def _safe_int(coro: Any) -> int | None:
+async def _safe(coro: Any, default: Any = None) -> Any:
     try:
         return await coro
     except Exception:  # noqa: BLE001
-        return None
+        return default
+
+
+async def _safe_int(coro: Any) -> int | None:
+    result = await _safe(coro)
+    if isinstance(result, int):
+        return result
+    return None
 
 
 async def get_user_summary() -> dict[str, Any]:
@@ -49,8 +56,8 @@ async def get_user_summary() -> dict[str, Any]:
     signups_7d = await _safe_int(get_signups_count_since((now - timedelta(days=7)).isoformat()))
     suspended = await _safe_int(get_suspended_user_count())
     lifetime_or_founder = await _safe_int(get_lifetime_or_founder_count())
-    sessions = await _safe_int(platform_repo.get_active_sessions_summary()) or {}
-    payments = await _safe_int(platform_repo.get_payment_requests_summary(limit=1)) or {}
+    sessions = await _safe(platform_repo.get_active_sessions_summary(), {})
+    payments = await _safe(platform_repo.get_payment_requests_summary(limit=1), {})
 
     return {
         "total_users": total,

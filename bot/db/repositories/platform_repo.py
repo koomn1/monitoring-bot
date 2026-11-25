@@ -4,7 +4,8 @@ bot/db/repositories/platform_repo.py
 Read-only telemetry repository querying Quiz Space's application tables
 (users, quizzes, completions, guest_quiz_attempts, premium_requests,
 ai_performance_logs, extraction_jobs, web_vitals, user_sessions,
-classrooms, cosmo_conversations) via `target_db()`.
+classrooms, cosmo_conversations, platform_settings, trial_offers,
+coupon_codes) via `target_db()`.
 
 Every query degrades gracefully (logs and returns None / empty defaults)
 when an optional application table or column is absent in a given
@@ -396,3 +397,115 @@ async def get_active_sessions_summary() -> dict[str, int | None]:
             "user_sessions", column="id", since_iso=_cutoff_iso(hours=24), since_col="last_active"
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Platform settings & trial offers (read-only views)
+# ---------------------------------------------------------------------------
+
+async def get_platform_settings() -> dict[str, Any]:
+    """Read the singleton platform_settings row (maintenance_mode, allow_registrations)."""
+    try:
+        res = target_db().table("platform_settings").select(
+            "maintenance_mode,allow_registrations,updated_at,updated_by"
+        ).limit(1).execute()
+        return res.data[0] if res.data else {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching platform_settings: %s", exc)
+        return {}
+
+
+async def get_trial_offers() -> list[dict[str, Any]]:
+    """Read all trial_offers rows (7, 14, 30 days with their is_active state)."""
+    try:
+        res = (
+            target_db()
+            .table("trial_offers")
+            .select("duration_days,is_active,updated_at,updated_by")
+            .order("duration_days")
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching trial_offers: %s", exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Coupon codes (read-only listing)
+# ---------------------------------------------------------------------------
+
+async def list_coupon_codes(*, active_only: bool = False, limit: int = 20) -> list[dict[str, Any]]:
+    """List coupon codes — service-role bypasses the admin-only write RLS."""
+    try:
+        query = (
+            target_db()
+            .table("coupon_codes")
+            .select("id,code,discount_percent,max_uses,used_count,expiry_date,is_active,applicable_plans,created_at")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if active_only:
+            query = query.eq("is_active", True)
+        res = query.execute()
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching coupon_codes: %s", exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Top users by XP / reward points (leaderboard)
+# ---------------------------------------------------------------------------
+
+async def get_top_users_by_xp(*, limit: int = 10) -> list[dict[str, Any]]:
+    """Return top users by XP descending."""
+    try:
+        res = (
+            target_db()
+            .table("users")
+            .select("uid,name,custom_id,xp,level,is_premium,plan_name,badge_tier")
+            .order("xp", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching top users by XP: %s", exc)
+        return []
+
+
+async def get_top_users_by_points(*, limit: int = 10) -> list[dict[str, Any]]:
+    """Return top users by reward points descending, joining name from users."""
+    try:
+        bal_res = (
+            target_db()
+            .table("user_reward_balances")
+            .select("user_id,points,coins,level")
+            .order("points", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        rows = list(bal_res.data or [])
+        if not rows:
+            return []
+        uids = [r["user_id"] for r in rows if r.get("user_id")]
+        names: dict[str, str] = {}
+        try:
+            u_res = (
+                target_db()
+                .table("users")
+                .select("uid,name,custom_id")
+                .in_("uid", uids)
+                .execute()
+            )
+            for u in u_res.data or []:
+                names[u["uid"]] = u.get("name") or u.get("custom_id") or u["uid"][:8]
+        except Exception:  # noqa: BLE001
+            pass
+        for row in rows:
+            row["display_name"] = names.get(row.get("user_id", ""), str(row.get("user_id", ""))[:8])
+        return rows
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching top users by points: %s", exc)
+        return []

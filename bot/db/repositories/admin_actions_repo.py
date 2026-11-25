@@ -581,3 +581,110 @@ async def review_reward_order(
         "total_points": new_points,
         "level": new_level,
     }
+
+
+# ---------------------------------------------------------------------------
+# Platform settings — service-role direct UPDATE (bypasses admin JWT check)
+# ---------------------------------------------------------------------------
+
+async def update_platform_settings(
+    *,
+    maintenance_mode: bool,
+    allow_registrations: bool,
+) -> dict[str, Any]:
+    """Toggle platform-wide maintenance mode and registration lock."""
+    now_iso = _now_iso()
+    target_db().table("platform_settings").update(
+        {
+            "maintenance_mode": maintenance_mode,
+            "allow_registrations": allow_registrations,
+            "updated_at": now_iso,
+        }
+    ).eq("singleton", True).execute()
+    return {
+        "maintenance_mode": maintenance_mode,
+        "allow_registrations": allow_registrations,
+        "updated_at": now_iso,
+    }
+
+
+async def set_trial_offer(*, duration_days: int, is_active: bool) -> dict[str, Any]:
+    """Enable or disable a trial offer duration (7 / 14 / 30 days)."""
+    if duration_days not in (7, 14, 30):
+        raise ValueError("duration_days must be 7, 14, or 30.")
+    now_iso = _now_iso()
+    target_db().table("trial_offers").update(
+        {"is_active": is_active, "updated_at": now_iso}
+    ).eq("duration_days", duration_days).execute()
+    return {"duration_days": duration_days, "is_active": is_active, "updated_at": now_iso}
+
+
+# ---------------------------------------------------------------------------
+# Coupon CRUD — service-role bypasses admin-only write RLS
+# ---------------------------------------------------------------------------
+
+async def list_coupons(*, limit: int = 20) -> list[dict[str, Any]]:
+    try:
+        res = (
+            target_db()
+            .table("coupon_codes")
+            .select("id,code,discount_percent,max_uses,used_count,expiry_date,is_active,applicable_plans,created_at")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return list(res.data or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed fetching coupon_codes: %s", exc)
+        return []
+
+
+async def create_coupon(
+    *,
+    coupon_id: str,
+    code: str,
+    discount_percent: int,
+    max_uses: int = 0,
+    expiry_date: str | None = None,
+    applicable_plans: str = "silver,gold,diamond",
+) -> dict[str, Any]:
+    if not coupon_id.strip() or not code.strip():
+        raise ValueError("coupon_id and code are required.")
+    if not (0 <= discount_percent <= 100):
+        raise ValueError("discount_percent must be 0-100.")
+
+    payload: dict[str, Any] = {
+        "id": coupon_id.strip(),
+        "code": code.strip().upper(),
+        "discount_percent": discount_percent,
+        "max_uses": max(0, max_uses),
+        "used_count": 0,
+        "is_active": True,
+        "applicable_plans": applicable_plans or "silver,gold,diamond",
+        "created_at": _now_iso(),
+    }
+    if expiry_date:
+        payload["expiry_date"] = expiry_date
+
+    res = (
+        target_db()
+        .table("coupon_codes")
+        .upsert(payload, on_conflict="id")
+        .execute()
+    )
+    return res.data[0] if res.data else payload
+
+
+async def toggle_coupon_active(coupon_id: str, *, is_active: bool) -> dict[str, Any]:
+    res = (
+        target_db()
+        .table("coupon_codes")
+        .update({"is_active": is_active})
+        .eq("id", coupon_id.strip())
+        .execute()
+    )
+    return res.data[0] if res.data else {"id": coupon_id, "is_active": is_active}
+
+
+async def delete_coupon(coupon_id: str) -> None:
+    target_db().table("coupon_codes").delete().eq("id", coupon_id.strip()).execute()

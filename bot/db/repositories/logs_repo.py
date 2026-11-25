@@ -151,13 +151,26 @@ async def get_service_stats(*, hours: int = 24) -> dict[str, dict[str, Any]]:
 
 
 async def get_uptime_percentage(service: str, *, days: int = 7) -> float | None:
+    """Calculate uptime from bot's own monitoring_logs (no RPC required)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     try:
-        res = db().rpc("get_uptime_percentage", {"p_service": service, "p_days": days}).execute()
-        if res.data is not None:
-            return float(res.data)
+        result = (
+            db()
+            .table("monitoring_logs")
+            .select("status")
+            .eq("service", service)
+            .gte("checked_at", cutoff)
+            .limit(10000)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return None
+        total = len(rows)
+        up_count = sum(1 for r in rows if r.get("status") == "up")
+        return round((up_count / total) * 100.0, 2)
     except Exception:  # noqa: BLE001
         return None
-    return None
 
 
 async def cleanup_old_logs(retention_days: int = 90) -> None:

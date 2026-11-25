@@ -20,7 +20,7 @@ logger = logging.getLogger("api.server")
 routes = web.RouteTableDef()
 
 
-_ALLOWED_SUPABASE_TABLES = {"premium_requests", "users", "profiles", "subscription_plans"}
+_ALLOWED_SUPABASE_TABLES = {"premium_requests", "users", "profiles", "subscription_plans", "reward_store_orders"}
 _PLAN_FIELDS = ("plan_name", "plan", "subscription_plan", "package_name", "package", "subscription_type")
 _AMOUNT_FIELDS = ("amount", "payment_amount", "payable_amount", "total_amount", "price")
 _PAYMENT_FIELDS = ("payment_method", "method", "payment_type")
@@ -154,6 +154,19 @@ async def _process_supabase_event(payload: dict[str, Any]) -> None:
 
     if table == "subscription_plans":
         await notifications_service.notify_admin_table_change(table, action, identifier)
+        return
+
+    if table == "reward_store_orders":
+        if action == "INSERT":
+            order_type = record.get("order_type") or "points"
+            amount_pts = record.get("amount_points") or 0
+            amount_egp = record.get("amount_egp") or 0
+            await notifications_service.notify_operational_alert(
+                f"🎁 New reward store order #{str(identifier or '')[:8]}\n"
+                f"Type: {order_type} | {amount_pts} pts / {amount_egp} EGP\n"
+                f"User: {record.get('user_id', 'unknown')[:16]}\n"
+                f"Use /orders to review."
+            )
         return
 
     if table == "premium_requests":

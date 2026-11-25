@@ -267,3 +267,117 @@ async def review_order(
         )
     except ValueError as exc:
         raise QuizSpaceBotError(str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Platform settings & trial offers
+# ---------------------------------------------------------------------------
+
+async def get_platform_settings() -> dict[str, Any]:
+    from bot.db.repositories import platform_repo
+    return await platform_repo.get_platform_settings()
+
+
+async def get_trial_offers() -> list[dict[str, Any]]:
+    from bot.db.repositories import platform_repo
+    return await platform_repo.get_trial_offers()
+
+
+async def toggle_platform_settings(
+    *,
+    maintenance_mode: bool,
+    allow_registrations: bool,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if not confirmed:
+        mm = "ON" if maintenance_mode else "OFF"
+        reg = "ENABLED" if allow_registrations else "DISABLED"
+        raise ConfirmationRequiredError(
+            "platform",
+            f"Set maintenance_mode={mm} and allow_registrations={reg}?",
+            extra_args=["set", str(int(maintenance_mode)), str(int(allow_registrations))],
+        )
+    return await admin_actions_repo.update_platform_settings(
+        maintenance_mode=maintenance_mode,
+        allow_registrations=allow_registrations,
+    )
+
+
+async def toggle_trial_offer(
+    *,
+    duration_days: int,
+    is_active: bool,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if duration_days not in (7, 14, 30):
+        raise QuizSpaceBotError("duration_days must be 7, 14, or 30.")
+    if not confirmed:
+        verb = "ENABLE" if is_active else "DISABLE"
+        raise ConfirmationRequiredError(
+            "trial",
+            f"{verb} the {duration_days}-day trial offer?",
+            extra_args=[str(duration_days), "on" if is_active else "off"],
+        )
+    try:
+        return await admin_actions_repo.set_trial_offer(duration_days=duration_days, is_active=is_active)
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Coupon management
+# ---------------------------------------------------------------------------
+
+async def list_coupons(*, limit: int = 20) -> list[dict[str, Any]]:
+    return await admin_actions_repo.list_coupons(limit=limit)
+
+
+async def create_coupon(
+    *,
+    coupon_id: str,
+    code: str,
+    discount_percent: int,
+    max_uses: int = 0,
+    expiry_date: str | None = None,
+    applicable_plans: str = "silver,gold,diamond",
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "coupon",
+            f"Create coupon '{code.upper()}' — {discount_percent}% off {applicable_plans}?",
+            extra_args=["create", coupon_id, code, str(discount_percent), str(max_uses),
+                        expiry_date or "-", applicable_plans],
+        )
+    try:
+        return await admin_actions_repo.create_coupon(
+            coupon_id=coupon_id,
+            code=code,
+            discount_percent=discount_percent,
+            max_uses=max_uses,
+            expiry_date=expiry_date,
+            applicable_plans=applicable_plans,
+        )
+    except ValueError as exc:
+        raise QuizSpaceBotError(str(exc)) from exc
+
+
+async def toggle_coupon(coupon_id: str, *, is_active: bool, confirmed: bool = False) -> dict[str, Any]:
+    verb = "ACTIVATE" if is_active else "DEACTIVATE"
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "coupon",
+            f"{verb} coupon '{coupon_id}'?",
+            extra_args=["toggle", coupon_id, "on" if is_active else "off"],
+        )
+    return await admin_actions_repo.toggle_coupon_active(coupon_id, is_active=is_active)
+
+
+async def delete_coupon(coupon_id: str, *, confirmed: bool = False) -> None:
+    if not confirmed:
+        raise ConfirmationRequiredError(
+            "coupon",
+            f"PERMANENTLY DELETE coupon '{coupon_id}'? This cannot be undone.",
+            extra_args=["delete", coupon_id],
+        )
+    await admin_actions_repo.delete_coupon(coupon_id)

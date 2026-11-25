@@ -106,6 +106,16 @@ _HELP_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ],
     ),
     (
+        "Platform Controls",
+        [
+            ("platform", "View/toggle maintenance mode & registration (Owner)"),
+            ("trial", "View/toggle trial offer durations 7/14/30 days (Owner)"),
+            ("coupon", "List, create, activate, deactivate, or delete coupons (Owner)"),
+            ("vitals", "Web Vitals report: CLS, LCP, FCP, INP, TTFB — p75 & avg"),
+            ("topusers", "Top users leaderboard by XP or reward points"),
+        ],
+    ),
+    (
         "Analytics & AI Assistant",
         [
             ("analytics", "Platform analytics, Web Vitals & Umami traffic"),
@@ -1366,3 +1376,270 @@ async def handle_settings(ctx: CommandContext) -> str:
 
     await set_setting(key, value)
     return f"⚙️ {key} set to {value}."
+
+
+# ---------------------------------------------------------------------------
+# /platform — view & toggle maintenance mode / registration
+# ---------------------------------------------------------------------------
+
+@command("platform")
+async def handle_platform(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    # Read current state
+    if not ctx.args:
+        cfg = await admin_actions.get_platform_settings()
+        if not cfg:
+            return "⚙️ <b>Platform Settings</b>\n• Unable to read platform_settings."
+        mm = "🔴 ON" if cfg.get("maintenance_mode") else "🟢 OFF"
+        reg = "✅ ENABLED" if cfg.get("allow_registrations") else "❌ DISABLED"
+        updated = _age(cfg.get("updated_at"))
+        return (
+            "⚙️ <b>Platform Settings</b>\n"
+            f"• Maintenance mode: <b>{mm}</b>\n"
+            f"• Registrations: <b>{reg}</b>\n"
+            f"• Last updated: {updated}\n\n"
+            "Toggle: <code>/platform maintenance on|off</code>\n"
+            "Toggle: <code>/platform registration on|off</code>"
+        )
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+
+    if len(args) == 3 and args[0].lower() == "set" and confirmed:
+        mm = args[1] == "1"
+        reg = args[2] == "1"
+    else:
+        if len(args) < 2 or args[1].lower() not in ("on", "off"):
+            return "Usage: /platform &lt;maintenance|registration&gt; &lt;on|off&gt;"
+
+        # Read current to preserve the other field
+        cfg = await admin_actions.get_platform_settings()
+        mm = bool(cfg.get("maintenance_mode", False))
+        reg = bool(cfg.get("allow_registrations", True))
+
+        field = args[0].lower()
+        value = args[1].lower() == "on"
+        if field == "maintenance":
+            mm = value
+        elif field == "registration":
+            reg = value
+        else:
+            return "Unknown field. Use 'maintenance' or 'registration'."
+
+    result = await admin_actions.toggle_platform_settings(
+        maintenance_mode=mm, allow_registrations=reg, confirmed=confirmed
+    )
+    return (
+        "⚙️ <b>Platform Settings Updated</b>\n"
+        f"• Maintenance mode: {'🔴 ON' if result['maintenance_mode'] else '🟢 OFF'}\n"
+        f"• Registrations: {'✅ ENABLED' if result['allow_registrations'] else '❌ DISABLED'}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# /trial — view & toggle trial offer durations
+# ---------------------------------------------------------------------------
+
+@command("trial")
+async def handle_trial(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    if not ctx.args or (len(ctx.args) == 1 and ctx.args[0].isdigit() is False):
+        offers = await admin_actions.get_trial_offers()
+        if not offers:
+            return "🎁 <b>Trial Offers</b>\n• No trial offers found."
+        lines = ["🎁 <b>Trial Offers</b>", ""]
+        for offer in offers:
+            state = "✅ Active" if offer.get("is_active") else "❌ Inactive"
+            updated = _age(offer.get("updated_at"))
+            lines.append(f"• <b>{offer.get('duration_days')}d</b>: {state} (updated {updated})")
+        lines.append("\nToggle: <code>/trial &lt;7|14|30&gt; &lt;on|off&gt;</code>")
+        return "\n".join(lines)
+
+    if len(ctx.args) < 2 or ctx.args[1].lower() not in ("on", "off"):
+        return "Usage: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+
+    if not args[0].isdigit():
+        return "Usage: /trial &lt;7|14|30&gt; &lt;on|off&gt;"
+    duration = int(args[0])
+    is_active = args[1].lower() == "on"
+
+    result = await admin_actions.toggle_trial_offer(
+        duration_days=duration, is_active=is_active, confirmed=confirmed
+    )
+    state = "✅ Activated" if result["is_active"] else "❌ Deactivated"
+    return (
+        f"🎁 <b>Trial Offer Updated</b>\n"
+        f"• Duration: <b>{result['duration_days']} days</b>\n"
+        f"• Status: {state}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# /coupon — list, create, toggle, delete coupons
+# ---------------------------------------------------------------------------
+
+@command("coupon")
+async def handle_coupon(ctx: CommandContext) -> str:
+    from bot.modules.admin_actions import service as admin_actions
+
+    confirmed = "confirm" in ctx.args
+    args = [a for a in ctx.args if a != "confirm"]
+
+    if not args:
+        # List coupons
+        coupons = await admin_actions.list_coupons(limit=20)
+        if not coupons:
+            return "🎟️ <b>Coupon Codes</b>\n• No coupons found."
+        lines = ["🎟️ <b>Coupon Codes</b>", ""]
+        for c in coupons:
+            active_icon = "✅" if c.get("is_active") else "❌"
+            used = c.get("used_count", 0)
+            max_u = c.get("max_uses", 0)
+            uses_txt = f"{used}/{max_u}" if max_u else f"{used}/∞"
+            exp = c.get("expiry_date")
+            exp_txt = f" | exp {_age(exp)}" if exp else ""
+            plans = c.get("applicable_plans") or "all"
+            lines.append(
+                f"{active_icon} <code>{_esc(c.get('code'))}</code> — "
+                f"{c.get('discount_percent', 0)}% off | uses: {uses_txt}{exp_txt}\n"
+                f"  ID: <code>{_esc(c.get('id'))}</code> | plans: {_esc(plans, 50)}"
+            )
+        lines.append(
+            "\nCreate: <code>/coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]</code>\n"
+            "Toggle: <code>/coupon toggle &lt;id&gt; on|off</code>\n"
+            "Delete: <code>/coupon delete &lt;id&gt;</code>"
+        )
+        return "\n".join(lines)
+
+    sub = args[0].lower()
+
+    if sub == "create":
+        # /coupon create <id> <CODE> <discount%> [max_uses] [expiry_iso] [plans]
+        if len(args) < 4:
+            return "Usage: /coupon create &lt;id&gt; &lt;CODE&gt; &lt;discount%&gt; [max_uses] [expiry_iso] [plans]"
+        coupon_id = args[1]
+        code = args[2]
+        try:
+            disc = int(args[3])
+        except ValueError:
+            return "discount_percent must be an integer 0-100."
+        max_uses = int(args[4]) if len(args) > 4 and args[4].isdigit() else 0
+        expiry_arg = args[5] if len(args) > 5 else None
+        expiry = expiry_arg if (expiry_arg and expiry_arg != "-" and "T" in expiry_arg) else None
+        plans = args[6] if len(args) > 6 else "silver,gold,diamond"
+
+        result = await admin_actions.create_coupon(
+            coupon_id=coupon_id, code=code, discount_percent=disc,
+            max_uses=max_uses, expiry_date=expiry, applicable_plans=plans,
+            confirmed=confirmed,
+        )
+        return (
+            "🎟️ <b>Coupon Created/Updated</b>\n"
+            f"• Code: <code>{_esc(result.get('code'))}</code>\n"
+            f"• Discount: {result.get('discount_percent', 0)}% | Max uses: {result.get('max_uses', 0) or '∞'}\n"
+            f"• Plans: {_esc(result.get('applicable_plans', 'all'), 60)}"
+        )
+
+    if sub == "toggle":
+        if len(args) < 3 or args[2].lower() not in ("on", "off"):
+            return "Usage: /coupon toggle &lt;id&gt; on|off"
+        is_active = args[2].lower() == "on"
+        result = await admin_actions.toggle_coupon(args[1], is_active=is_active, confirmed=confirmed)
+        state = "✅ Activated" if result.get("is_active") else "❌ Deactivated"
+        return f"🎟️ <b>Coupon {state}</b>\n• ID: <code>{_esc(args[1])}</code>"
+
+    if sub == "delete":
+        if len(args) < 2:
+            return "Usage: /coupon delete &lt;id&gt;"
+        await admin_actions.delete_coupon(args[1], confirmed=confirmed)
+        return f"🗑️ <b>Coupon Deleted</b>\n• ID: <code>{_esc(args[1])}</code>"
+
+    return "Unknown subcommand. Use: list (no args), create, toggle, delete."
+
+
+# ---------------------------------------------------------------------------
+# /vitals — dedicated Web Vitals report
+# ---------------------------------------------------------------------------
+
+@command("vitals")
+async def handle_vitals(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
+
+    summary = await platform_repo.get_web_vitals_summary()
+    if not summary:
+        return "📊 <b>Web Vitals</b>\n• No vitals data available."
+
+    _THRESHOLDS = {
+        "CLS": [(0.1, "🟢 Good"), (0.25, "🟡 Needs Improvement"), (999, "🔴 Poor")],
+        "LCP": [(2500, "🟢 Good"), (4000, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
+        "FCP": [(1800, "🟢 Good"), (3000, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
+        "INP": [(200, "🟢 Good"), (500, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
+        "TTFB": [(800, "🟢 Good"), (1800, "🟡 Needs Improvement"), (99999, "🔴 Poor")],
+    }
+
+    def _rating(metric: str, value: float) -> str:
+        for threshold, label in _THRESHOLDS.get(metric, []):
+            if value <= threshold:
+                return label
+        return "⚪"
+
+    lines = ["📊 <b>Web Vitals Report</b>", ""]
+    for metric, stats in sorted(summary.items()):
+        p75 = stats.get("p75")
+        avg = stats.get("avg")
+        samples = stats.get("samples", 0)
+        rating = _rating(metric, p75) if p75 is not None else "⚪"
+        unit = "" if metric == "CLS" else "ms"
+        lines.append(
+            f"• <b>{metric}</b>: p75={_fmt(p75, unit)} avg={_fmt(avg, unit)} "
+            f"({samples} samples) {rating}"
+        )
+
+    lines.append(
+        "\n<i>Good: CLS≤0.1 LCP≤2500ms FCP≤1800ms INP≤200ms TTFB≤800ms</i>"
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# /topusers — leaderboard by XP or reward points
+# ---------------------------------------------------------------------------
+
+@command("topusers")
+async def handle_topusers(ctx: CommandContext) -> str:
+    from bot.db.repositories import platform_repo
+
+    mode = (ctx.args[0].lower() if ctx.args else "xp")
+    limit = 10
+
+    if mode in ("points", "pts", "rewards"):
+        rows = await platform_repo.get_top_users_by_points(limit=limit)
+        lines = ["🏆 <b>Top Users — Reward Points</b>", ""]
+        if not rows:
+            return lines[0] + "\n• No data available."
+        for idx, row in enumerate(rows, 1):
+            name = _esc(row.get("display_name", str(row.get("user_id", ""))[:8]), 30)
+            pts = int(row.get("points") or 0)
+            lvl = row.get("level", 1)
+            lines.append(f"{idx}. {name} — <b>{pts:,}</b> pts | Level {lvl}")
+        lines.append("\nFilter: <code>/topusers xp</code> | <code>/topusers points</code>")
+        return "\n".join(lines)
+
+    # Default: XP
+    rows = await platform_repo.get_top_users_by_xp(limit=limit)
+    lines = ["🏆 <b>Top Users — XP Leaderboard</b>", ""]
+    if not rows:
+        return lines[0] + "\n• No data available."
+    for idx, row in enumerate(rows, 1):
+        name = _esc(row.get("name") or row.get("custom_id") or str(row.get("uid", ""))[:8], 30)
+        xp = int(row.get("xp") or 0)
+        lvl = row.get("level", 1)
+        tier = "⭐" if row.get("is_premium") else "·"
+        lines.append(f"{idx}. {tier} {name} — <b>{xp:,}</b> XP | Level {lvl}")
+    lines.append("\nFilter: <code>/topusers xp</code> | <code>/topusers points</code>")
+    return "\n".join(lines)

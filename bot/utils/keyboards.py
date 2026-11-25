@@ -84,6 +84,10 @@ def main_menu_buttons() -> Keyboard:
             {"text": "🗄️ Database", "callback_data": "cmd|database"},
             {"text": "🛡️ Security", "callback_data": "cmd|security"},
         ],
+        [
+            {"text": "🎟️ Coupons", "callback_data": "cmd|coupon"},
+            {"text": "⚙️ Platform", "callback_data": "cmd|platform"},
+        ],
     ]
 
 
@@ -109,6 +113,11 @@ _REFRESHABLE = {
     "reports",
     "errors",
     "logs",
+    "vitals",
+    "topusers",
+    "coupon",
+    "platform",
+    "trial",
 }
 _MENU_COMMANDS = {"start", "help"}
 
