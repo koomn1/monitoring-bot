@@ -82,6 +82,26 @@ def _section_buttons(rows: list[list[tuple[str, str, list[str] | None]]]) -> Non
     )
 
 
+_INPUT_HELP: dict[str, str] = {
+    "user": "👤 <b>فتح ملف مستخدم</b>\n\nاستخدم:\n<code>/user &lt;uid_or_email_or_custom_id&gt;</code>",
+    "grantpoints": "🏆 <b>تعديل نقاط مستخدم</b>\n\nاستخدم:\n<code>/grantpoints &lt;uid_or_email&gt; &lt;+/-amount&gt; [ملاحظة]</code>",
+    "edituser": "🛡️ <b>تعديل بيانات مستخدم</b>\n\nاستخدم:\n<code>/edituser &lt;uid_or_email&gt; &lt;field&gt; &lt;value&gt;</code>",
+    "notify": (
+        "📣 <b>إرسال إشعار</b>\n\n"
+        "استخدم:\n<code>/notify &lt;uid_or_email_or_all&gt; &lt;العنوان&gt; | &lt;نص الإشعار&gt;</code>\n\n"
+        "مثال:\n<code>/notify all صيانة سريعة | سيتم تحديث السيرفر خلال 10 دقائق</code>"
+    ),
+    "rollback": "↩️ <b>التراجع عن نشر</b>\n\nاستخدم:\n<code>/rollback &lt;commit_sha&gt;</code>",
+}
+
+
+@command("input_help")
+async def handle_input_help(ctx: CommandContext) -> str:
+    """Explain required text arguments instead of running an incomplete command."""
+    topic = ctx.args[0].lower() if ctx.args else ""
+    return _INPUT_HELP.get(topic, "اختر أحد الأزرار التي تحتاج إلى إدخال نصي.")
+
+
 @command("monitor")
 async def handle_monitor(ctx: CommandContext) -> str:
     _section_buttons([
@@ -96,11 +116,14 @@ async def handle_people(ctx: CommandContext) -> str:
     from bot.core.permissions import Role, get_role
 
     rows = [
-        [("👥 المستخدمون", "users", None), ("🔎 ملف مستخدم", "user", None)],
+        [("👥 المستخدمون", "users", None), ("🔎 طريقة فتح ملف", "input_help", ["user"])],
         [("🏆 النقاط وXP", "points", None), ("🎁 طلبات المتجر", "orders", None)],
     ]
     if await get_role(ctx.user_id) >= Role.OWNER:
-        rows.append([("✏️ تعديل النقاط", "grantpoints", None), ("🛡️ تعديل مستخدم", "edituser", None)])
+        rows.append([
+            ("✏️ طريقة تعديل النقاط", "input_help", ["grantpoints"]),
+            ("🛡️ طريقة تعديل مستخدم", "input_help", ["edituser"]),
+        ])
     _section_buttons(rows)
     return "👥 <b>المستخدمون والنقاط</b>\n\nإدارة الحسابات، العضويات، النقاط وسجل المكافآت."
 
@@ -127,7 +150,7 @@ async def handle_content(ctx: CommandContext) -> str:
 async def handle_platform_admin(ctx: CommandContext) -> str:
     _section_buttons([
         [("⚙️ إعدادات المنصة", "platform", None), ("🧩 إعدادات التشغيل", "settings", None)],
-        [("📣 الإشعارات", "notify", None), ("📊 التحليلات", "analytics", None)],
+        [("📣 طريقة إرسال إشعار", "input_help", ["notify"]), ("📊 التحليلات", "analytics", None)],
     ])
     return "⚙️ <b>إعدادات Quiz Space</b>\n\nتحكم في الصيانة والتسجيل والإعدادات التشغيلية والإشعارات."
 
@@ -137,7 +160,7 @@ async def handle_operations(ctx: CommandContext) -> str:
     _section_buttons([
         [("🚀 النشر", "deploy", None), ("🔨 البناء", "build", None)],
         [("💾 النسخ الاحتياطي", "backup", None), ("🗄️ قاعدة البيانات", "database", None)],
-        [("📦 التخزين", "storage", None), ("↩️ التراجع", "rollback", None)],
+        [("📦 التخزين", "storage", None), ("↩️ طريقة التراجع", "input_help", ["rollback"])],
     ])
     return "🚀 <b>النشر والنسخ الاحتياطي</b>\n\nشغّل العمليات التشغيلية مع إبقاء التغييرات الحساسة خلف تأكيد."
 

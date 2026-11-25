@@ -56,6 +56,7 @@ COMMAND_MIN_ROLE: dict[str, Role] = {
     "help": Role.VIEWER,
     "monitor": Role.VIEWER,
     "people": Role.ADMIN,
+    "input_help": Role.ADMIN,
     "commerce": Role.ADMIN,
     "content": Role.ADMIN,
     "platform_admin": Role.OWNER,
