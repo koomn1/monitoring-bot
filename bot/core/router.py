@@ -121,7 +121,7 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         if e.service == "GitHub":
             github_details = {
                 401: "بيانات اعتماد GitHub غير صالحة أو منتهية. راجع GITHUB_TOKEN.",
-                403: "رفض GitHub الطلب. تحقق من صلاحيات GITHUB_TOKEN وحدود الاستخدام.",
+                403: "رفض GitHub الطلب. امنح GITHUB_TOKEN صلاحية Actions: Read and write وContents: Read، ثم حدّث السر في Railway.",
                 404: "المستودع أو مسار GitHub غير موجود. تحقق من GITHUB_REPO بصيغة owner/repo.",
                 429: "تم تجاوز حد GitHub مؤقتاً. حاول بعد قليل.",
                 500: "GitHub يواجه عطلاً مؤقتاً. حاول بعد قليل.",
