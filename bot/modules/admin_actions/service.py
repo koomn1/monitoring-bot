@@ -90,8 +90,10 @@ async def get_user_points_detail(identifier: str) -> dict[str, Any]:
         raise QuizSpaceBotError(str(exc)) from exc
 
 
-async def list_reward_orders(*, limit: int = 15) -> list[dict[str, Any]]:
-    return await admin_actions_repo.list_reward_orders(limit=limit)
+async def list_reward_orders(
+    *, limit: int = 15, offset: int = 0, status: str | None = None
+) -> list[dict[str, Any]]:
+    return await admin_actions_repo.list_reward_orders(limit=limit, offset=offset, status=status)
 
 
 async def approve_payment(request_id: str, *, confirmed: bool = False) -> dict[str, Any]:

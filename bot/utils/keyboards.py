@@ -178,6 +178,7 @@ def refresh_button(
 _REFRESHABLE = {
     "status",
     "dashboard",
+    "overview",
     "pulse",
     "ai",
     "payments",
@@ -215,6 +216,7 @@ _SECTION_COMMANDS = {
 _PARENT_COMMANDS = {
     "status": "monitor",
     "dashboard": "monitor",
+    "overview": "monitor",
     "pulse": "monitor",
     "incidents": "monitor",
     "users": "people",
@@ -260,6 +262,12 @@ def _default_filter_rows(command: str) -> Keyboard:
         return [[
             cmd_button("⏳ المعلّقة", "payments"),
             cmd_button("📋 الكل", "payments", ["all"]),
+        ]]
+    if command == "orders":
+        return [[
+            cmd_button("⏳ المعلّقة", "orders", ["pending"]),
+            cmd_button("✅ المقبولة", "orders", ["approved"]),
+            cmd_button("📋 الكل", "orders", ["all"]),
         ]]
     if command == "topusers":
         return [[

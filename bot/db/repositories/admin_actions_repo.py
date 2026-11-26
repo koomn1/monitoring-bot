@@ -457,18 +457,18 @@ async def adjust_user_points(
     }
 
 
-async def list_reward_orders(*, limit: int = 15) -> list[dict[str, Any]]:
-    res = (
+async def list_reward_orders(*, limit: int = 15, offset: int = 0, status: str | None = None) -> list[dict[str, Any]]:
+    query = (
         target_db()
         .table("reward_store_orders")
         .select(
             "id,user_id,item_id,order_type,amount_points,amount_egp,"
             "payment_method,payment_reference,status,notes,created_at"
         )
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
     )
+    if status:
+        query = query.eq("status", status)
+    res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     orders = list(res.data or [])
     user_ids = {str(order.get("user_id")) for order in orders if order.get("user_id")}
     if not user_ids:

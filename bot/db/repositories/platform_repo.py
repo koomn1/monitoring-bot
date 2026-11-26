@@ -551,7 +551,9 @@ async def list_recent_quizzes(*, limit: int = 15) -> list[dict[str, Any]]:
         return []
 
 
-async def list_users_table(*, filter_mode: str = "all", limit: int = 12, offset: int = 0) -> list[dict[str, Any]]:
+async def list_users_table(
+    *, filter_mode: str = "all", limit: int = 12, offset: int = 0, search: str | None = None
+) -> list[dict[str, Any]]:
     """Return users with their plan, suspension status, XP, and reward points."""
     try:
         query = (
@@ -563,6 +565,8 @@ async def list_users_table(*, filter_mode: str = "all", limit: int = 12, offset:
             query = query.eq("is_premium", True)
         elif filter_mode == "suspended":
             query = query.eq("is_suspended", True)
+        if search:
+            query = query.ilike("name", f"%{search.strip()}%")
         res = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
         rows = list(res.data or [])
     except Exception as exc:  # noqa: BLE001

@@ -105,6 +105,7 @@ async def handle_input_help(ctx: CommandContext) -> str:
 @command("monitor")
 async def handle_monitor(ctx: CommandContext) -> str:
     _section_buttons([
+        [("📊 ملخص المنصة", "overview", None)],
         [("📊 لوحة التحكم", "dashboard", None), ("🟢 حالة الخدمات", "status", None)],
         [("⚡ النبض الحي", "pulse", None), ("🚨 الحوادث", "incidents", None)],
     ])
@@ -452,6 +453,33 @@ async def handle_dashboard(ctx: CommandContext) -> str:
         )
 
     return "\n".join(lines)
+
+
+@command("overview")
+async def handle_overview(ctx: CommandContext) -> str:
+    from bot.modules.analytics import service as analytics_service
+    from bot.modules.backup import service as backup_service
+
+    analytics = await analytics_service.get_analytics_summary()
+    pulse = analytics.get("pulse") or {}
+    users = pulse.get("users") or {}
+    payments = pulse.get("payments") or {}
+    incidents = pulse.get("open_incidents") or []
+    try:
+        backups = await backup_service.list_backups()
+        latest = backups[0] if backups else None
+    except Exception:  # noqa: BLE001 - keep the summary useful when GitHub is down
+        latest = None
+    backup_text = _esc(latest.get("created_at"), 30) if latest else "لا توجد نسخة ناجحة ظاهرة"
+    return "\n".join([
+        title("ملخص المنصة", "dashboard"),
+        f"👥 المستخدمون: {_fmt(users.get('total'))} | بريميوم: {_fmt(users.get('premium'))}",
+        f"💳 الطلبات المعلقة: {_fmt(payments.get('pending_count'))}",
+        f"🚨 الحوادث المفتوحة: {len(incidents)}",
+        f"💾 آخر نسخة احتياطية: {backup_text}",
+        "",
+        "استخدم /users للبحث والتنقل، و/points لإدارة النقاط.",
+    ])
 
 
 @command("pulse")
@@ -896,12 +924,31 @@ async def handle_grantpoints(ctx: CommandContext) -> str:
 async def handle_orders(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
-    orders = await admin_actions.list_reward_orders(limit=15)
-    lines = ["🎁 <b>طلبات متجر المكافآت</b>", "<i>أحدث 15 طلباً — كل طلب في بطاقة مستقلة</i>", ""]
+    status_filter = next((arg for arg in ctx.args if arg in {"pending", "approved", "rejected", "all"}), None)
+    status_filter = None if status_filter in (None, "all") else status_filter
+    try:
+        page = max(1, int(ctx.args[-1])) if ctx.args and ctx.args[-1].isdigit() else 1
+    except ValueError:
+        page = 1
+    page_size = 10
+    try:
+        orders = await admin_actions.list_reward_orders(
+            limit=page_size + 1, offset=(page - 1) * page_size, status=status_filter
+        )
+    except TypeError:
+        # Keeps older service adapters/mocks working during rolling deploys.
+        orders = await admin_actions.list_reward_orders(limit=page_size + 1)
+    lines = [
+        f"🎁 <b>طلبات متجر المكافآت · صفحة {page}</b>",
+        "<i>كل طلب في بطاقة مستقلة — استخدم pending أو approved أو rejected للفلترة</i>",
+        "",
+    ]
     if not orders:
         lines.append("✅ لا توجد طلبات في متجر المكافآت حالياً.")
         return "\n".join(lines)
 
+    has_next = len(orders) > page_size
+    orders = orders[:page_size]
     status_ar = {
         "pending": "معلّق للمراجعة",
         "approved": "تمت الموافقة",
@@ -976,6 +1023,13 @@ async def handle_orders(ctx: CommandContext) -> str:
     ]
     if references:
         lines.append("<b>مراجع الدفع</b>\n" + "\n".join(references[:5]))
+    navigation = []
+    if page > 1:
+        navigation.append(cmd_button("◀️ السابق", "orders", [status_filter or "all", str(page - 1)]))
+    if has_next:
+        navigation.append(cmd_button("التالي ▶️", "orders", [status_filter or "all", str(page + 1)]))
+    if navigation:
+        action_rows.append(navigation)
     if action_rows:
         set_reply_buttons(action_rows)
     return "\n".join(lines)
@@ -1077,10 +1131,15 @@ async def handle_users(ctx: CommandContext) -> str:
     from bot.modules.users import service as users_service
 
     filter_mode = "all"
-    if ctx.args and ctx.args[0].lower() in ("premium", "suspended", "all"):
-        filter_mode = ctx.args[0].lower()
+    search_term = ""
+    args = list(ctx.args)
+    if args and args[0].lower() == "search":
+        search_term = " ".join(args[1:-1] if args[1:] and args[-1].isdigit() else args[1:]).strip()
+        args = ["all", args[-1]] if args[-1].isdigit() else ["all", "1"]
+    if args and args[0].lower() in ("premium", "suspended", "all"):
+        filter_mode = args[0].lower()
     try:
-        page = max(1, int(ctx.args[1])) if len(ctx.args) > 1 else 1
+        page = max(1, int(args[1])) if len(args) > 1 else 1
     except ValueError:
         page = 1
     page_size = 12
@@ -1094,7 +1153,11 @@ async def handle_users(ctx: CommandContext) -> str:
 
     filter_labels = {"all": "الكل", "premium": "البريميوم", "suspended": "الموقوفون"}
     lines = [
-        title(f"المستخدمون · {filter_labels[filter_mode]} · صفحة {page}", "users"),
+        title(
+            f"المستخدمون · {filter_labels[filter_mode]}"
+            f"{f' · بحث: {search_term}' if search_term else ''} · صفحة {page}",
+            "users",
+        ),
         f"الإجمالي: {total} | البريميوم: {premium} ({pct}) | أحدث المسجلين: {len(recent)}",
     ]
 
@@ -1112,7 +1175,15 @@ async def handle_users(ctx: CommandContext) -> str:
     if extra_parts:
         lines.append(" | ".join(extra_parts))
 
-    table_source = await platform_repo.list_users_table(filter_mode=filter_mode, limit=page_size + 1, offset=offset)
+    try:
+        table_source = await platform_repo.list_users_table(
+            filter_mode=filter_mode, limit=page_size + 1, offset=offset, search=search_term or None
+        )
+    except TypeError:
+        # Keeps older repository adapters working during rolling deploys.
+        table_source = await platform_repo.list_users_table(
+            filter_mode=filter_mode, limit=page_size + 1, offset=offset
+        )
     has_next = len(table_source) > page_size
     table_source = table_source[:page_size]
     if not table_source and recent:
@@ -1137,7 +1208,10 @@ async def handle_users(ctx: CommandContext) -> str:
             )
             if uid_full:
                 label = str(u.get("name") or u.get("custom_id") or uid_full[:8])[:24]
-                user_action_rows.append([cmd_button(f"👤 {label}", "user", [uid_full])])
+                user_action_rows.append([
+                    cmd_button(f"👤 {label}", "user", [uid_full]),
+                    cmd_button("🏆 النقاط", "points", [uid_full]),
+                ])
         lines.append("")
         lines.append(format_cards(card_rows, [("المعرف", "المعرف"), ("الباقة", "الباقة"), ("الحالة", "الحالة"), ("النقاط", "النقاط")]))
         lines.append("اختر زر المستخدم لفتح ملفه الكامل وإجراءات التعديل.")
@@ -1145,9 +1219,9 @@ async def handle_users(ctx: CommandContext) -> str:
             user_action_rows = user_action_rows[:8]
         navigation = []
         if page > 1:
-            navigation.append(cmd_button("◀️ السابق", "users", [filter_mode, str(page - 1)]))
+            navigation.append(cmd_button("◀️ السابق", "users", ["search", search_term, str(page - 1)] if search_term else [filter_mode, str(page - 1)]))
         if has_next:
-            navigation.append(cmd_button("التالي ▶️", "users", [filter_mode, str(page + 1)]))
+            navigation.append(cmd_button("التالي ▶️", "users", ["search", search_term, str(page + 1)] if search_term else [filter_mode, str(page + 1)]))
         if navigation:
             user_action_rows.append(navigation)
         if user_action_rows:
