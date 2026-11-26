@@ -331,6 +331,43 @@ async def test_orders_handler_renders_arabic_cards_with_user_identity(monkeypatc
     assert "01018995002" in out
 
 
+@pytest.mark.asyncio
+async def test_users_and_points_lists_expose_next_page_buttons(monkeypatch):
+    from bot.db.repositories import platform_repo
+    from bot.modules.admin_actions import service as admin_actions
+    from bot.modules.telegram_commands import handlers
+    from bot.utils import keyboards
+    from bot.modules.users import service as users_service
+
+    async def _fake_summary():
+        return {"total_users": 13, "premium_users": 2, "recent_signups": []}
+
+    async def _fake_users_table(*, filter_mode="all", limit=12, offset=0):
+        return [
+            {"uid": f"user-{offset + i}", "name": f"User {offset + i}", "is_premium": False}
+            for i in range(limit)
+        ]
+
+    monkeypatch.setattr(users_service, "get_user_summary", _fake_summary)
+    monkeypatch.setattr(platform_repo, "list_users_table", _fake_users_table)
+    await handlers.handle_users(CommandContext(1, 1, "users", [], "/users"))
+    user_buttons = keyboards._REPLY_EXTRA_BUTTONS.get()
+    assert user_buttons[-1][0]["text"] == "التالي ▶️"
+    assert "users|all,2" in user_buttons[-1][0]["callback_data"]
+
+    async def _fake_points(*, limit=10, offset=0):
+        return {
+            "top_balances": [{"user_id": f"user-{i}", "points": i} for i in range(limit)],
+            "recent_ledger": [],
+        }
+
+    monkeypatch.setattr(admin_actions, "get_points_overview", _fake_points)
+    await handlers.handle_points(CommandContext(1, 1, "points", [], "/points"))
+    points_buttons = keyboards._REPLY_EXTRA_BUTTONS.get()
+    assert points_buttons[0][0]["text"] == "التالي ▶️"
+    assert "points|page,2" in points_buttons[0][0]["callback_data"]
+
+
 def test_long_confirmation_uses_short_token_within_64_bytes():
     from bot.utils.keyboards import confirmation_buttons, resolve_confirmation_token
 

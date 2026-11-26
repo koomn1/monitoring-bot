@@ -775,7 +775,7 @@ async def handle_setbadge(ctx: CommandContext) -> str:
 async def handle_points(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
-    if ctx.args:
+    if ctx.args and ctx.args[0].lower() != "page":
         detail = await admin_actions.get_user_points_detail(ctx.args[0])
         bal = detail.get("balance") or {}
         lines = [
@@ -814,10 +814,17 @@ async def handle_points(ctx: CommandContext) -> str:
             )
         return "\n".join(lines)
 
-    overview = await admin_actions.get_points_overview(limit=10)
+    try:
+        page = max(1, int(ctx.args[1])) if len(ctx.args) > 1 and ctx.args[0].lower() == "page" else 1
+    except ValueError:
+        page = 1
+    page_size = 10
+    overview = await admin_actions.get_points_overview(limit=page_size + 1, offset=(page - 1) * page_size)
     top_bal = overview.get("top_balances") or []
     recent_led = overview.get("recent_ledger") or []
-    lines = ["🏆 <b>النقاط والمكافآت</b>", ""]
+    has_next = len(top_bal) > page_size
+    top_bal = top_bal[:page_size]
+    lines = [f"🏆 <b>النقاط والمكافآت · صفحة {page}</b>", ""]
     if top_bal:
         bal_rows = [
             {
@@ -843,6 +850,13 @@ async def handle_points(ctx: CommandContext) -> str:
                 f"[{_esc(entry.get('event_type'))}] ({_age(entry.get('created_at'))})"
             )
 
+    navigation = []
+    if page > 1:
+        navigation.append(cmd_button("◀️ السابق", "points", ["page", str(page - 1)]))
+    if has_next:
+        navigation.append(cmd_button("التالي ▶️", "points", ["page", str(page + 1)]))
+    if navigation:
+        set_reply_buttons([navigation])
     lines.append("\nافتح ملف المستخدم من قسم المستخدمين لإدارة النقاط والعضوية.")
     return "\n".join(lines)
 
@@ -1065,6 +1079,12 @@ async def handle_users(ctx: CommandContext) -> str:
     filter_mode = "all"
     if ctx.args and ctx.args[0].lower() in ("premium", "suspended", "all"):
         filter_mode = ctx.args[0].lower()
+    try:
+        page = max(1, int(ctx.args[1])) if len(ctx.args) > 1 else 1
+    except ValueError:
+        page = 1
+    page_size = 12
+    offset = (page - 1) * page_size
 
     summary = await users_service.get_user_summary()
     total = summary.get("total_users", 0)
@@ -1074,7 +1094,7 @@ async def handle_users(ctx: CommandContext) -> str:
 
     filter_labels = {"all": "الكل", "premium": "البريميوم", "suspended": "الموقوفون"}
     lines = [
-        title(f"المستخدمون · {filter_labels[filter_mode]}", "users"),
+        title(f"المستخدمون · {filter_labels[filter_mode]} · صفحة {page}", "users"),
         f"الإجمالي: {total} | البريميوم: {premium} ({pct}) | أحدث المسجلين: {len(recent)}",
     ]
 
@@ -1092,7 +1112,9 @@ async def handle_users(ctx: CommandContext) -> str:
     if extra_parts:
         lines.append(" | ".join(extra_parts))
 
-    table_source = await platform_repo.list_users_table(filter_mode=filter_mode, limit=12)
+    table_source = await platform_repo.list_users_table(filter_mode=filter_mode, limit=page_size + 1, offset=offset)
+    has_next = len(table_source) > page_size
+    table_source = table_source[:page_size]
     if not table_source and recent:
         table_source = recent[:10]
 
@@ -1120,7 +1142,16 @@ async def handle_users(ctx: CommandContext) -> str:
         lines.append(format_cards(card_rows, [("المعرف", "المعرف"), ("الباقة", "الباقة"), ("الحالة", "الحالة"), ("النقاط", "النقاط")]))
         lines.append("اختر زر المستخدم لفتح ملفه الكامل وإجراءات التعديل.")
         if user_action_rows:
-            set_reply_buttons(user_action_rows[:8])
+            user_action_rows = user_action_rows[:8]
+        navigation = []
+        if page > 1:
+            navigation.append(cmd_button("◀️ السابق", "users", [filter_mode, str(page - 1)]))
+        if has_next:
+            navigation.append(cmd_button("التالي ▶️", "users", [filter_mode, str(page + 1)]))
+        if navigation:
+            user_action_rows.append(navigation)
+        if user_action_rows:
+            set_reply_buttons(user_action_rows)
 
     return "\n".join(lines)
 

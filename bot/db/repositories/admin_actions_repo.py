@@ -313,7 +313,7 @@ async def set_user_badge_tier(identifier: str, *, badge_tier: str) -> dict[str, 
     return {"uid": user["uid"], "name": user.get("name"), "badge_tier": badge_tier}
 
 
-async def get_points_overview(*, limit: int = 10) -> dict[str, Any]:
+async def get_points_overview(*, limit: int = 10, offset: int = 0) -> dict[str, Any]:
     balances: list[dict[str, Any]] = []
     recent_ledger: list[dict[str, Any]] = []
     try:
@@ -322,7 +322,7 @@ async def get_points_overview(*, limit: int = 10) -> dict[str, Any]:
             .table("user_reward_balances")
             .select("user_id,points,coins,level,updated_at")
             .order("points", desc=True)
-            .limit(limit)
+            .range(offset, offset + limit - 1)
             .execute()
         )
         balances = list(bal_res.data or [])
@@ -347,7 +347,7 @@ async def get_points_overview(*, limit: int = 10) -> dict[str, Any]:
             .table("reward_points_ledger")
             .select("user_id,points,event_type,metadata,created_at")
             .order("created_at", desc=True)
-            .limit(limit)
+            .range(offset, offset + limit - 1)
             .execute()
         )
         recent_ledger = list(led_res.data or [])

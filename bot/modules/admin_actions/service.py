@@ -79,8 +79,8 @@ async def list_payment_requests_detailed(*, status_filter: str = "pending", limi
     return await admin_actions_repo.list_payment_requests_detailed(status_filter=status_filter, limit=limit)
 
 
-async def get_points_overview(*, limit: int = 10) -> dict[str, Any]:
-    return await admin_actions_repo.get_points_overview(limit=limit)
+async def get_points_overview(*, limit: int = 10, offset: int = 0) -> dict[str, Any]:
+    return await admin_actions_repo.get_points_overview(limit=limit, offset=offset)
 
 
 async def get_user_points_detail(identifier: str) -> dict[str, Any]:
