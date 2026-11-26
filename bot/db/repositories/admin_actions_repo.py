@@ -469,7 +469,51 @@ async def list_reward_orders(*, limit: int = 15) -> list[dict[str, Any]]:
         .limit(limit)
         .execute()
     )
-    return list(res.data or [])
+    orders = list(res.data or [])
+    user_ids = {str(order.get("user_id")) for order in orders if order.get("user_id")}
+    if not user_ids:
+        return orders
+
+    # Orders store only user_id. Resolve readable identity in one query so
+    # /orders does not expose a wall of opaque IDs or make N+1 calls.
+    try:
+        users_res = (
+            target_db()
+            .table("users")
+            .select("uid,name,custom_id,email")
+            .in_("uid", list(user_ids))
+            .limit(len(user_ids))
+            .execute()
+        )
+        users = {str(user.get("uid")): user for user in (users_res.data or [])}
+        for order in orders:
+            user = users.get(str(order.get("user_id")))
+            if user:
+                order["user_name"] = user.get("name")
+                order["user_custom_id"] = user.get("custom_id")
+                order["user_email"] = user.get("email")
+    except Exception as exc:  # noqa: BLE001 - identity is an optional enhancement
+        logger.warning("Failed to enrich reward orders with user identity: %s", exc)
+
+    item_ids = {str(order.get("item_id")) for order in orders if order.get("item_id")}
+    if item_ids:
+        try:
+            items_res = (
+                target_db()
+                .table("reward_store_items")
+                .select("id,name")
+                .in_("id", list(item_ids))
+                .limit(len(item_ids))
+                .execute()
+            )
+            item_names = {str(item.get("id")): item.get("name") for item in (items_res.data or [])}
+            for order in orders:
+                item_name = item_names.get(str(order.get("item_id")))
+                if item_name:
+                    order["item_name"] = item_name
+        except Exception as exc:  # noqa: BLE001 - product name is optional
+            logger.warning("Failed to enrich reward orders with item names: %s", exc)
+    return orders
 
 
 async def _find_reward_order(order_id: str) -> dict[str, Any] | None:

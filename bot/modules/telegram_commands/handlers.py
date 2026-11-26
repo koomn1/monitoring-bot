@@ -883,30 +883,57 @@ async def handle_orders(ctx: CommandContext) -> str:
     from bot.modules.admin_actions import service as admin_actions
 
     orders = await admin_actions.list_reward_orders(limit=15)
-    lines = ["🎁 <b>جدول طلبات متجر المكافآت</b>", ""]
+    lines = ["🎁 <b>طلبات متجر المكافآت</b>", "<i>أحدث 15 طلباً — كل طلب في بطاقة مستقلة</i>", ""]
     if not orders:
-        lines.append("✅ لا توجد طلبات في متجر المكافآت.")
+        lines.append("✅ لا توجد طلبات في متجر المكافآت حالياً.")
         return "\n".join(lines)
 
+    status_ar = {
+        "pending": "معلّق للمراجعة",
+        "approved": "تمت الموافقة",
+        "rejected": "مرفوض",
+        "cancelled": "ملغي",
+    }
+    payment_ar = {
+        "vodafone_cash": "فودافون كاش",
+        "instapay": "إنستاباي",
+        "bank_transfer": "تحويل بنكي",
+        "card": "بطاقة بنكية",
+    }
+    order_type_ar = {"purchase": "شراء", "gift": "هدية", "redeem": "استبدال"}
     card_rows = []
     action_rows = []
-    refs: list[str] = []
     for order in orders:
         oid = str(order.get("id") or "")
         short_id = oid[:8]
         status_val = str(order.get("status") or "pending")
-        amt = f"{order.get('amount_egp', 0)}ج/{order.get('amount_points', 0)}ن"
+        amount_parts = []
+        if order.get("amount_egp") is not None:
+            amount_parts.append(f"{order['amount_egp']} جنيه")
+        if order.get("amount_points") is not None:
+            amount_parts.append(f"{order['amount_points']} نقطة")
+        amount = " + ".join(amount_parts) or "غير محددة"
+        user_name = order.get("user_name")
+        user_custom_id = order.get("user_custom_id")
+        user_email = order.get("user_email")
+        user_label = user_name or user_custom_id or user_email or "مستخدم غير معروف"
+        user_details = str(user_label)
+        if user_custom_id and user_custom_id != user_label:
+            user_details += f"\nالمعرّف المخصص: {user_custom_id}"
+        user_id = str(order.get("user_id") or "")
+        if user_id:
+            user_details += f"\nUID: {user_id[:12]}"
         card_rows.append(
             {
-                "title": f"🎁 طلب {short_id}",
-                "الصنف": order.get("item_id") or "-",
-                "القيمة": amt,
-                "الدفع": order.get("payment_method") or "-",
-                "الحالة": status_val,
+                "title": f"🎁 طلب #{short_id}",
+                "المنتج": order.get("item_name") or order.get("item_id") or "غير محدد",
+                "القيمة": amount,
+                "طريقة الدفع": payment_ar.get(str(order.get("payment_method")), order.get("payment_method") or "غير محددة"),
+                "الحالة": status_ar.get(status_val, status_val),
+                "المستخدم": user_details,
+                "نوع الطلب": order_type_ar.get(str(order.get("order_type")), order.get("order_type") or "غير محدد"),
             }
         )
-        if order.get("payment_reference"):
-            refs.append(f"• <code>{_esc(short_id)}</code>: <code>{_esc(order.get('payment_reference'), 60)}</code>")
         if status_val == "pending" and len(action_rows) < 3:
             action_rows.append(
                 [
@@ -918,12 +945,23 @@ async def handle_orders(ctx: CommandContext) -> str:
     lines.append(
         format_cards(
             card_rows,
-            [("الصنف", "الصنف"), ("القيمة", "القيمة"), ("الدفع", "الدفع"), ("الحالة", "الحالة")],
+            [
+                ("المنتج", "المنتج"),
+                ("القيمة", "القيمة"),
+                ("طريقة الدفع", "طريقة الدفع"),
+                ("الحالة", "الحالة"),
+                ("المستخدم", "المستخدم"),
+                ("نوع الطلب", "نوع الطلب"),
+            ],
         )
     )
-    if refs:
-        lines.append("<b>مراجع الدفع:</b>")
-        lines.extend(refs[:5])
+    references = [
+        f"• <b>#{_esc(str(order.get('id') or '')[:8])}</b>: <code>{_esc(order.get('payment_reference'), 60)}</code>"
+        for order in orders
+        if order.get("payment_reference")
+    ]
+    if references:
+        lines.append("<b>مراجع الدفع</b>\n" + "\n".join(references[:5]))
     if action_rows:
         set_reply_buttons(action_rows)
     return "\n".join(lines)

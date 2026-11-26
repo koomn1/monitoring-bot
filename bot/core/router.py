@@ -118,6 +118,18 @@ async def dispatch(ctx: CommandContext) -> DispatchResult:
         return f"⚠️ {e}", buttons
     except ExternalServiceError as e:
         logger.error("External service error handling /%s: %s", ctx.command, e)
+        if e.service == "GitHub":
+            github_details = {
+                401: "بيانات اعتماد GitHub غير صالحة أو منتهية. راجع GITHUB_TOKEN.",
+                403: "رفض GitHub الطلب. تحقق من صلاحيات GITHUB_TOKEN وحدود الاستخدام.",
+                404: "المستودع أو مسار GitHub غير موجود. تحقق من GITHUB_REPO بصيغة owner/repo.",
+                429: "تم تجاوز حد GitHub مؤقتاً. حاول بعد قليل.",
+                500: "GitHub يواجه عطلاً مؤقتاً. حاول بعد قليل.",
+                502: "بوابة GitHub غير متاحة مؤقتاً. حاول بعد قليل.",
+                503: "خدمة GitHub غير متاحة مؤقتاً. حاول بعد قليل.",
+            }
+            detail = github_details.get(e.status_code, "تعذر الاتصال بواجهة GitHub أو انتهت مهلته.")
+            return f"❌ GitHub: {detail}", None
         return f"❌ تعذر الوصول إلى {e.service} حالياً. حاول مرة أخرى بعد قليل.", None
     except QuizSpaceBotError as e:
         logger.error("Bot error handling /%s: %s", ctx.command, e)

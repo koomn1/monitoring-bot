@@ -299,6 +299,38 @@ async def test_detailed_errors_handler_shows_all_sources(monkeypatch):
     assert "STUCK" in out
 
 
+@pytest.mark.asyncio
+async def test_orders_handler_renders_arabic_cards_with_user_identity(monkeypatch):
+    from bot.modules.admin_actions import service as admin_actions
+    from bot.modules.telegram_commands import handlers
+
+    async def _fake_orders(*, limit=15):
+        return [
+            {
+                "id": "6aed9a9b-1234",
+                "user_id": "user-very-long-id",
+                "user_name": "أحمد",
+                "user_custom_id": "ahmed_77",
+                "item_id": "offer_double_pack",
+                "amount_egp": 150,
+                "amount_points": 2500,
+                "payment_method": "vodafone_cash",
+                "payment_reference": "01018995002",
+                "status": "approved",
+            }
+        ]
+
+    monkeypatch.setattr(admin_actions, "list_reward_orders", _fake_orders)
+    out = await handlers.handle_orders(CommandContext(1, 1, "orders", [], "/orders"))
+
+    assert "كل طلب في بطاقة مستقلة" in out
+    assert "المنتج" in out and "offer_double_pack" in out
+    assert "فودافون كاش" in out and "تمت الموافقة" in out
+    assert "أحمد" in out and "المعرّف المخصص" in out and "ahmed_77" in out
+    assert "UID: user-very-l" in out
+    assert "01018995002" in out
+
+
 def test_long_confirmation_uses_short_token_within_64_bytes():
     from bot.utils.keyboards import confirmation_buttons, resolve_confirmation_token
 

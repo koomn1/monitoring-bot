@@ -60,6 +60,8 @@ async def _request(method: str, path: str, **kwargs: Any) -> httpx.Response:
                 "GitHub", f"{exc.response.status_code}: {exc.response.text}",
                 status_code=exc.response.status_code,
             ) from exc
+        except httpx.TimeoutException as exc:
+            raise ExternalServiceError("GitHub", "request timed out") from exc
         except httpx.HTTPError as exc:
             raise ExternalServiceError("GitHub", str(exc)) from exc
 
